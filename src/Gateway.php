@@ -127,6 +127,13 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	protected $helper = null;
 
+	/**
+	 * Settlement prefix
+	 *
+	 * @var int
+	 */
+	private $settlement_prefix = 10;
+
 	const TAX_RATE_PRECISION   = 1;
 	const SUPPORTED_CURRENCIES = array( 'EUR' );
 
