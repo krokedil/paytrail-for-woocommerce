@@ -10,6 +10,6 @@ use Paytrail\WooCommercePaymentGateway\Gateway;
 class Callback extends AbstractController {
 
 	protected function index() {
-		new Gateway(['callbackMode' => true]);
+		new Gateway( array( 'callbackMode' => true ) );
 	}
 }

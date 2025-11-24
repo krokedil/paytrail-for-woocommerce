@@ -15,13 +15,13 @@ class CardSuccess extends AbstractController {
 		$gateway = new Gateway();
 		try {
 			$gateway->process_card_token();
-			wc_add_notice(__('Card was added successfully', 'paytrail-for-woocommerce'), 'success');
-		} catch (HmacException $e) {
-			wc_add_notice(__('Could not add card details', 'paytrail-for-woocommerce'), 'error');
-		} catch (ValidationException $e) {
-			wc_add_notice(__('Could not add card details', 'paytrail-for-woocommerce'), 'error');
+			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
+		} catch ( HmacException $e ) {
+			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
+		} catch ( ValidationException $e ) {
+			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
 		}
-		wp_safe_redirect(wc_get_checkout_url());
+		wp_safe_redirect( wc_get_checkout_url() );
 		exit;
 	}
 
@@ -29,13 +29,13 @@ class CardSuccess extends AbstractController {
 		$gateway = new Gateway();
 		try {
 			$gateway->process_card_token();
-			wc_add_notice(__('Card was added successfully', 'paytrail-for-woocommerce'), 'success');
-		} catch (HmacException $e) {
-			wc_add_notice(__('Could not add card details', 'paytrail-for-woocommerce'), 'error');
-		} catch (ValidationException $e) {
-			wc_add_notice(__('Could not add card details', 'paytrail-for-woocommerce'), 'error');
+			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
+		} catch ( HmacException $e ) {
+			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
+		} catch ( ValidationException $e ) {
+			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
 		}
-		wp_safe_redirect(wc_get_account_endpoint_url('payment-methods'));
+		wp_safe_redirect( wc_get_account_endpoint_url( 'payment-methods' ) );
 		exit;
 	}
 
@@ -43,13 +43,13 @@ class CardSuccess extends AbstractController {
 		$gateway = new Gateway();
 		try {
 			$gateway->process_card_token();
-			wc_add_notice(__('Card was added successfully', 'paytrail-for-woocommerce'), 'success');
-		} catch (HmacException $e) {
-			wc_add_notice(__('Could not add card details', 'paytrail-for-woocommerce'), 'error');
-		} catch (ValidationException $e) {
-			wc_add_notice(__('Could not add card details', 'paytrail-for-woocommerce'), 'error');
+			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
+		} catch ( HmacException $e ) {
+			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
+		} catch ( ValidationException $e ) {
+			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
 		}
-		wp_safe_redirect(wc_get_account_endpoint_url('subscriptions'));
+		wp_safe_redirect( wc_get_account_endpoint_url( 'subscriptions' ) );
 		exit;
 	}
 }
