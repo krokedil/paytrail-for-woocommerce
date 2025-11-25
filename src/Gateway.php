@@ -202,6 +202,27 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		// Check if we are in response phase
 		$this->check_paytrail_response();
+
+		new Controllers\MetaBox();
+	}
+
+	/**
+	 * Get gateway instance
+	 *
+	 * @param string|null $gateway_id The gateway ID. Defaults to Plugin::GATEWAY_ID.
+	 * @return Gateway|null
+	 */
+	public static function get_gateway( $gateway_id = null ) {
+		return isset( WC()->payment_gateways ) ? WC()->payment_gateways()->get_available_payment_gateways()[ $gateway_id ?? Plugin::GATEWAY_ID ] : null;
+	}
+
+	/**
+	 * Get Paytrail SDK Client instance.
+	 *
+	 * @return Client
+	 */
+	public function get_client() {
+		return $this->client;
 	}
 
 	/**
