@@ -34,6 +34,8 @@ use WC_Order_Item_Fee;
 use WC_Order_Item_Shipping;
 use WC_Payment_Token_CC;
 
+use Paytrail\WooCommercePaymentGateway\Controllers\MetaBox;
+
 /**
  * Class Gateway
  * The Gateway class
@@ -204,16 +206,6 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->check_paytrail_response();
 
 		new Controllers\MetaBox();
-	}
-
-	/**
-	 * Get gateway instance
-	 *
-	 * @param string|null $gateway_id The gateway ID. Defaults to Plugin::GATEWAY_ID.
-	 * @return Gateway|null
-	 */
-	public static function get_gateway( $gateway_id = null ) {
-		return isset( WC()->payment_gateways ) ? WC()->payment_gateways()->get_available_payment_gateways()[ $gateway_id ?? Plugin::GATEWAY_ID ] : null;
 	}
 
 	/**
