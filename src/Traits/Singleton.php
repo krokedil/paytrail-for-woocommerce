@@ -1,5 +1,5 @@
 <?php
-namespace Krokedil\Paytrail\Traits;
+namespace Paytrail\WooCommercePaymentGateway\Traits;
 
 defined( 'ABSPATH' ) || exit;
 
