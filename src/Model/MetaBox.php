@@ -8,6 +8,7 @@
 namespace Paytrail\WooCommercePaymentGateway\Model;
 
 use Paytrail\SDK\Request\PaymentStatusRequest;
+use Paytrail\SDK\Response\PaymentStatusResponse;
 use Paytrail\WooCommercePaymentGateway\Gateway;
 
 /**
@@ -51,6 +52,13 @@ class MetaBox {
 	private $transaction_id;
 
 	/**
+	 * The Paytrail payment status.
+	 *
+	 * @var PaymentStatusResponse|null
+	 */
+	private $payment_status;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param \WC_Order $order The WC order.
@@ -66,18 +74,11 @@ class MetaBox {
 	 */
 	public function get_status() {
 		if ( empty( $this->status ) ) {
-			$gateway = new Gateway();
 
-			$request = new PaymentStatusRequest();
-			$request->setTransactionId( $this->order->get_transaction_id() );
-
-			$client = $gateway->get_client();
-			try {
-				$response     = $client->getPaymentStatus( $request );
-				$this->status = $response->getTransactionId() === $this->order->get_transaction_id() ? $response->getStatus() : null;
-			} catch ( \Exception $e ) {
-				$this->status = null;
+			if ( empty( $this->payment_status ) ) {
+				$this->payment_status = $this->get_payment_status();
 			}
+			$this->status = empty( $this->payment_status ) ? null : $this->payment_status->getStatus();
 		}
 
 		return $this->status;
@@ -89,19 +90,12 @@ class MetaBox {
 	 * @return string The Paytrail order amount.
 	 */
 	public function get_amount() {
-		if ( empty( $this->amount ) ) {
-			$gateway = new Gateway();
+		if ( null === $this->amount ) {
 
-			$request = new PaymentStatusRequest();
-			$request->setTransactionId( $this->order->get_transaction_id() );
-
-			$client = $gateway->get_client();
-			try {
-				$response     = $client->getPaymentStatus( $request );
-				$this->amount = $response->getTransactionId() === $this->order->get_transaction_id() ? $response->getAmount() : null;
-			} catch ( \Exception $e ) {
-				$this->amount = null;
+			if ( empty( $this->payment_status ) ) {
+				$this->payment_status = $this->get_payment_status();
 			}
+			$this->amount = empty( $this->payment_status ) ? null : $this->payment_status->getAmount();
 		}
 
 		return $this->amount;
@@ -132,5 +126,29 @@ class MetaBox {
 		}
 
 		return $this->transaction_id;
+	}
+
+	/**
+	 * Get the Payment status from Paytrail.
+	 *
+	 * @return PaymentStatusResponse|null
+	 */
+	private function get_payment_status() {
+		$gateway = new Gateway();
+
+		$request = new PaymentStatusRequest();
+		$request->setTransactionId( $this->order->get_transaction_id() );
+
+		$client = $gateway->get_client();
+		try {
+			$response = $client->getPaymentStatus( $request );
+			if ( $response->getTransactionId() === $this->order->get_transaction_id() ) {
+				return $response;
+			}
+		} catch ( \Exception $e ) {
+			return null;
+		}
+
+		return null;
 	}
 }
