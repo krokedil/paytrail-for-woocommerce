@@ -70,6 +70,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	public $enable_test_mode = false;
 
+
 	/**
 	 * Whether the debug mode is enabled.
 	 *
@@ -126,7 +127,15 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @var Helper
 	 */
-	protected $helper          = null;
+	protected $helper = null;
+
+	/**
+	 * Settlement prefix
+	 *
+	 * @var int
+	 */
+	private $settlement_prefix = 10;
+
 	const TAX_RATE_PRECISION   = 1;
 	const SUPPORTED_CURRENCIES = array( 'EUR' );
 
@@ -193,6 +202,8 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->callbackMode = true;
 		}
 
+		$this->settlement_prefix = $this->get_option( 'settlement_prefix', '10' );
+
 		// Add actions and filters.
 		$this->add_actions();
 
@@ -201,9 +212,6 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		// Register scripts for payment fields
 		$this->register_scripts();
-
-		// Check if we are in response phase
-		$this->check_paytrail_response();
 
 		new Controllers\MetaBox();
 	}
@@ -233,6 +241,30 @@ final class Gateway extends \WC_Payment_Gateway {
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_styles' ) );
+
+		// Check if we are in response phase.
+		add_action( 'template_redirect', array( $this, 'on_redirect_to_thankyou_page' ) );
+	}
+
+
+	/**
+	 * Process Paytrail order on redirect to thankyou-page.
+	 *
+	 * @return void
+	 */
+	public function on_redirect_to_thankyou_page() {
+		$order_id = absint( get_query_var( 'order-received', 0 ) );
+		$order    = wc_get_order( $order_id );
+		if ( empty( $order ) ) {
+			return;
+		}
+
+		$order_key = filter_input( INPUT_GET, 'key', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
+		if ( empty( $order_key ) || ! hash_equals( $order->get_order_key(), $order_key ) ) {
+			return;
+		}
+
+		$this->check_paytrail_response();
 	}
 
 	/**
