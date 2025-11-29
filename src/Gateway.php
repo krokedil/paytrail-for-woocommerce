@@ -1608,42 +1608,42 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @throws \Exception
 	 */
 	private function set_base_payment_data( $payment, $order ) {
-		// Set the order ID as the stamp to the payment request
+		// Set the order ID as the stamp to the payment request.
 		$payment->setStamp( get_current_blog_id() . '-' . $order->get_id() . '-' . time() );
 
-		// Use WooCom order number as reference
+		// Use WooCom order number as reference.
 		$reference = $order->get_order_number();
 
-		// Calculate bank reference for transaction-specific settlements
+		// Calculate bank reference for transaction-specific settlements.
 		if ( $this->transaction_settlement_enable ) {
 			$reference = $this->calculate_reference( $reference );
 		}
 
-		// Set WooCommerce order number as the payment reference
+		// Set WooCommerce order number as the payment reference.
 		$payment->setReference( $reference );
 
-		// Fetch current currency and the cart total
+		// Fetch current currency and the cart total.
 		$currency    = get_woocommerce_currency();
 		$order_total = $this->helper->handle_currency( $order->get_total() );
 
-		// Set the aforementioned values to the payment request
+		// Set the aforementioned values to the payment request.
 		$payment->setCurrency( $currency )
 			->setAmount( $order_total );
 
-		// Create a customer object from the order
+		// Create a customer object from the order.
 		$customer = $this->create_customer( $order );
 
-		// Set the customer object to the payment request
+		// Set the customer object to the payment request.
 		$payment->setCustomer( $customer );
 
-		// Create a billing address and assign it to the payment request
+		// Create a billing address and assign it to the payment request.
 		$billing_address = $this->create_address( $order, 'invoicing' );
 
 		if ( $billing_address ) {
 			$payment->setInvoicingAddress( $billing_address );
 		}
 
-		// Create a shipping address and assign it to the payment request
+		// Create a shipping address and assign it to the payment request.
 		$shipping_address = $this->create_address( $order, 'delivery' );
 
 		if ( $shipping_address ) {
@@ -1652,19 +1652,20 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		$payment->setLanguage( Helper::getLocale() );
 
-		// Get the items from the order
+		// Get the items from the order.
 		$items = $this->get_order_items( $order );
 
 		// Assign the items to the payment request.
 		$payment->setItems( array_filter( $items ) );
 
-		// Create and assign the return urls
+		// Create and assign the return urls.
 		$payment->setRedirectUrls( $this->create_redirect_url( $order ) );
 		$payment->setCallbackUrls( $this->create_callback_url() );
 
-		// Set callback delay to the payment request
+		// Set callback delay to the payment request.
 		$payment->setCallbackDelay( 3 );
 
+		$manual_invoice_activation = wc_string_to_bool( $this->get_option( 'manual_invoice_activation', 'no' ) );
 		return $payment;
 	}
 
@@ -2056,7 +2057,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param \WC_Order $order The order to create the customer object from.
 	 *
-	 * @return \CheckoutFinland\SDK\Model\Customer
+	 * @return Paytrail\SDK\Model\Customer
 	 */
 	protected function create_customer( \WC_Order $order ) {
 		$customer = new Customer();
