@@ -437,6 +437,13 @@ final class Gateway extends \WC_Payment_Gateway {
 				'title' => __( 'Advanced settings', 'paytrail-for-woocommerce' ),
 				'type'  => 'title',
 			),
+			'manual_invoice_activation'   => array(
+				'title'       => __( 'Manual invoice activation', 'paytrail-for-woocommerce' ),
+				'label'       => __( 'Enable manual invoice activation', 'paytrail-for-woocommerce' ),
+				'type'        => 'checkbox',
+				'default'     => 'no',
+				'description' => __( 'If paid with invoice payment method, the invoice will not be activated automatically immediately. Currently only supported with Walley.', 'paytrail-for-woocommerce' ),
+			),
 			'settlement_enablement'       => array(
 				'title'       => __( 'Enable individual settlements', 'paytrail-for-woocommerce' ),
 				'type'        => 'checkbox',
@@ -1666,6 +1673,8 @@ final class Gateway extends \WC_Payment_Gateway {
 		$payment->setCallbackDelay( 3 );
 
 		$manual_invoice_activation = wc_string_to_bool( $this->get_option( 'manual_invoice_activation', 'no' ) );
+		$payment->setManualInvoiceActivation( $manual_invoice_activation );
+
 		return $payment;
 	}
 
