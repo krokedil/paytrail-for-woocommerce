@@ -20,11 +20,12 @@ trait Singleton {
 	/**
 	 * Get the instance of the class
 	 *
+	 * @param mixed ...$args Optional arguments to pass to the class constructor.
 	 * @return object
 	 */
-	public static function get_instance() {
+	public static function get_instance( ...$args ) {
 		if ( null === self::$instance ) {
-			self::$instance = new self();
+			self::$instance = new self( ...$args );
 		}
 
 		return self::$instance;
