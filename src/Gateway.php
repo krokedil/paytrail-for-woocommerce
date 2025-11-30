@@ -26,6 +26,7 @@ use Paytrail\SDK\Response\InvoiceActivationResponse;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentSubscriptionMigration;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentTokenMigration;
 use Paytrail\WooCommercePaymentGateway\Providers\OPLasku;
+use Paytrail\WooCommercePaymentGateway\Traits\Singleton;
 use WC_Order;
 use WC_Order_Query;
 use WC_Order_Item;
@@ -43,6 +44,7 @@ use Paytrail\WooCommercePaymentGateway\Controllers\MetaBox;
  * @package Paytrail\WooCommercePaymentGateway
  */
 final class Gateway extends \WC_Payment_Gateway {
+	use Singleton;
 
 	/**
 	 * Paytrail merchant ID.

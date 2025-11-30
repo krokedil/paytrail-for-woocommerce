@@ -15,7 +15,7 @@ use WP_HTTP_Response;
 class Card extends AbstractController {
 
 	protected function add() {
-		$gateway = new Gateway();
+		$gateway = Gateway::get_instance();
 		try {
 			$gateway->add_card_form();
 		} catch ( \Exception $e ) {

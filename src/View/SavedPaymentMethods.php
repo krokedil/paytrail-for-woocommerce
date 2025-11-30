@@ -26,7 +26,7 @@ $delete_card_url = Router::get_url( Plugin::CARD_ENDPOINT, 'delete' );
 	<?php esc_html_e( 'Pay with saved card', 'paytrail-for-woocommerce' ); ?>
 </div>
 <?php if ( $has_methods ) : ?>
-	<?php ( new Gateway() )->saved_payment_methods(); ?>
+	<?php ( Gateway::get_instance() )->saved_payment_methods(); ?>
 	<a class="paytrail-for-woocommerce-tokenized-payment-method-links delete-card-button button"
 		href="#"><?php esc_html_e( 'Delete selected card', 'paytrail-for-woocommerce' ); ?></a>
 <?php endif; ?>

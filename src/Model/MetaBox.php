@@ -134,7 +134,7 @@ class MetaBox {
 	 * @return PaymentStatusResponse|null
 	 */
 	private function get_payment_status() {
-		$gateway = new Gateway();
+		$gateway = Gateway::get_instance();
 
 		$request = new PaymentStatusRequest();
 		$request->setTransactionId( $this->order->get_transaction_id() );

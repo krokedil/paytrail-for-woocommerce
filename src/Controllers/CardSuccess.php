@@ -12,7 +12,7 @@ use Paytrail\WooCommercePaymentGateway\Gateway;
 class CardSuccess extends AbstractController {
 
 	protected function checkout() {
-		$gateway = new Gateway();
+		$gateway = Gateway::get_instance();
 		try {
 			$gateway->process_card_token();
 			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
@@ -26,7 +26,7 @@ class CardSuccess extends AbstractController {
 	}
 
 	protected function my_account() {
-		$gateway = new Gateway();
+		$gateway = Gateway::get_instance();
 		try {
 			$gateway->process_card_token();
 			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
@@ -40,7 +40,7 @@ class CardSuccess extends AbstractController {
 	}
 
 	protected function change_payment_method() {
-		$gateway = new Gateway();
+		$gateway = Gateway::get_instance();
 		try {
 			$gateway->process_card_token();
 			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
