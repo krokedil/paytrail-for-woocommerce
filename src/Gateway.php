@@ -888,8 +888,8 @@ final class Gateway extends \WC_Payment_Gateway {
 			return;
 		}
 
-		$sleepTime         = rand( 0, 3 );
-		$sleepTimeCallback = rand( 3, 6 );
+		$sleepTime         = wp_rand( 0, 3 );
+		$sleepTimeCallback = wp_rand( 3, 6 );
 
 		if ( true === $this->callbackMode ) {
 			$this->log( 'Paytrail: Callback check_paytrail_response for order ' . $reference, 'debug' );
