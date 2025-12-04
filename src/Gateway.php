@@ -80,7 +80,12 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	public $debug = false;
 
-	public $callbackMode = false;
+	/**
+	 * Whether we are in callback mode.
+	 *
+	 * @var boolean
+	 */
+	public $callback_mode = false;
 
 	/**
 	 * Supported features.
@@ -182,26 +187,26 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->secret_key  = $this->get_option( 'secret_key' );
 		}
 
-		$platformName = 'paytrail-for-woocommerce-' . \Paytrail\WooCommercePaymentGateway\Plugin::$version;
+		$platform_name = 'paytrail-for-woocommerce-' . \Paytrail\WooCommercePaymentGateway\Plugin::$version;
 
-		// Create SDK client instance
+		// Create SDK client instance.
 		$this->client = new Client(
 			$this->merchant_id,
 			$this->secret_key,
-			$platformName
+			$platform_name
 		);
 
-		// Create Helper instance
+		// Create Helper instance.
 		$this->helper = new Helper();
 
 		// Whether we are in debug mode or not.
 		$this->debug = 'yes' === $this->get_option( 'debug', 'no' );
 
-		// Check if transaction settlement is enabled
+		// Check if transaction settlement is enabled.
 		$this->transaction_settlement_enable = $this->get_option( 'settlement_enablement', 'no' ) === 'yes';
 
 		if ( ! empty( $params ) && isset( $params['callbackMode'] ) ) {
-			$this->callbackMode = true;
+			$this->callback_mode = true;
 		}
 
 		$this->settlement_prefix = $this->get_option( 'settlement_prefix', '10' );
@@ -209,10 +214,10 @@ final class Gateway extends \WC_Payment_Gateway {
 		// Add actions and filters.
 		$this->add_actions();
 
-		// Register stylesheet for payment fields
+		// Register stylesheet for payment fields.
 		$this->register_styles();
 
-		// Register scripts for payment fields
+		// Register scripts for payment fields.
 		$this->register_scripts();
 
 		new Controllers\MetaBox();
@@ -254,7 +259,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @param boolean $mode Callback mode.
 	 */
 	public function set_callback_mode( $mode ) {
-		$this->callbackMode = $mode;
+		$this->callback_mode = $mode;
 	}
 
 	/**
@@ -899,7 +904,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		$sleepTime         = wp_rand( 0, 3 );
 		$sleepTimeCallback = wp_rand( 3, 6 );
 
-		if ( true === $this->callbackMode ) {
+		if ( true === $this->callback_mode ) {
 			$this->log( 'Paytrail: Callback check_paytrail_response for order ' . $reference, 'debug' );
 			$this->log( 'Paytrail: Wait for ' . $sleepTimeCallback . ' seconds until processing order ' . $reference, 'debug' );
 			sleep( $sleepTimeCallback );
