@@ -132,11 +132,14 @@ final class Plugin {
 		// Load the plugin textdomain.
 		load_plugin_textdomain( 'paytrail-for-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 
-		// Register customizations
+		// Initialize the gateway.
+		add_action( 'init', array( Gateway::class, 'get_instance' ) );
+
+		// Register customizations.
 		add_action( 'customize_register', array( $this, 'checkout_customizations' ) );
-		// Add custom styles
+		// Add custom styles.
 		add_action( 'wp_head', array( $this, 'paytrail_checkout_customize_css' ) );
-		// Enable WP Dashicons on frontend
+		// Enable WP Dashicons on frontend.
 		add_action(
 			'wp_enqueue_scripts',
 			function () {
@@ -154,14 +157,14 @@ final class Plugin {
 			}
 		);
 
-		// Blocks compatibility
+		// Blocks compatibility.
 		add_action( 'woocommerce_blocks_loaded', array( __CLASS__, 'register_blocks_support' ) );
 
-		// Enqueue jQuery
+		// Enqueue jQuery.
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_jquery' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_jquery_scripts' ) );
 
-		// Add OP Lasku calculator to the product and cart page
+		// Add OP Lasku calculator to the product and cart page.
 		add_action( 'woocommerce_init', array( $this, 'op_lasku_init' ) );
 	}
 
@@ -417,7 +420,7 @@ final class Plugin {
 				require_once __DIR__ . '/vendor/autoload.php';
 			}
 
-			// Create new instance of Router class
+			// Create new instance of Router class.
 			new Router();
 
 			// Add the gateway class to WooCommerce.
@@ -433,30 +436,6 @@ final class Plugin {
 		}
 
 		return self::$instance;
-	}
-
-	/**
-	 * Checks to run on plugin activation
-	 *
-	 * @return void
-	 */
-	public static function activation_check() {
-		$checks = array(
-			'check_php_version',
-			'check_woocommerce_active_status',
-			'check_woocommerce_version',
-		);
-
-		array_walk(
-			$checks,
-			function ( $check ) {
-				$error = call_user_func( __CLASS__ . '::' . $check );
-
-				if ( $error ) {
-					wp_die( esc_html( $error ) );
-				}
-			}
-		);
 	}
 
 	/**
@@ -578,12 +557,5 @@ final class Plugin {
 	}
 }
 
-add_action(
-	'plugins_loaded',
-	function () {
-		Plugin::instance();
-	}
-);
 
-
-register_activation_hook( __FILE__, __NAMESPACE__ . '\\Plugin::activation_check' );
+$paytrail = Plugin::instance();
