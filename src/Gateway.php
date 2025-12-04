@@ -176,7 +176,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->init_settings();
 
 		// Whether we are in test mode or not.
-		$this->enable_test_mode = 'yes' === $this->get_option( 'enable_test_mode', 'no' );
+		$this->enable_test_mode = wc_string_to_bool( $this->get_option( 'enable_test_mode', 'no' ) );
 
 		// Set merchant ID and secret key either from the options or for test mode.
 		if ( $this->enable_test_mode ) {
@@ -200,10 +200,10 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->helper = new Helper();
 
 		// Whether we are in debug mode or not.
-		$this->debug = 'yes' === $this->get_option( 'debug', 'no' );
+		$this->debug = wc_string_to_bool( $this->get_option( 'debug', 'no' ) );
 
 		// Check if transaction settlement is enabled.
-		$this->transaction_settlement_enable = $this->get_option( 'settlement_enablement', 'no' ) === 'yes';
+		$this->transaction_settlement_enable = wc_string_to_bool( $this->get_option( 'settlement_enablement', 'no' ) );
 
 		$this->settlement_prefix = $this->get_option( 'settlement_prefix', '10' );
 
