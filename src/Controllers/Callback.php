@@ -9,7 +9,10 @@ use Paytrail\WooCommercePaymentGateway\Gateway;
 
 class Callback extends AbstractController {
 
+	/**
+	 * Index method for the Callback controller
+	 */
 	protected function index() {
-		Gateway::get_instance( array( 'callbackMode' => true ) );
+		Gateway::get_instance()->set_callback_mode( true );
 	}
 }

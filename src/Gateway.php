@@ -248,6 +248,14 @@ final class Gateway extends \WC_Payment_Gateway {
 		add_action( 'template_redirect', array( $this, 'on_redirect_to_thankyou_page' ) );
 	}
 
+	/**
+	 * Set callback mode
+	 *
+	 * @param boolean $mode Callback mode.
+	 */
+	public function set_callback_mode( $mode ) {
+		$this->callbackMode = $mode;
+	}
 
 	/**
 	 * Process Paytrail order on redirect to thankyou-page.
