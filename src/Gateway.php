@@ -20,9 +20,7 @@ use Paytrail\SDK\Exception\HmacException;
 use Paytrail\SDK\Request\RefundRequest;
 use Paytrail\SDK\Client;
 use Paytrail\SDK\Request\EmailRefundRequest;
-use Paytrail\SDK\Model\Provider;
 use Paytrail\SDK\Response\GetTokenResponse;
-use Paytrail\SDK\Response\InvoiceActivationResponse;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentSubscriptionMigration;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentTokenMigration;
 use Paytrail\WooCommercePaymentGateway\Providers\OPLasku;
@@ -926,10 +924,10 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param string $status The status of the response.
 	 *
-	 * @return void
+	 * @return bool|null
 	 */
 	public function handle_payment_response( $status ) {
-		// Check the HMAC
+		// Check the HMAC.
 		try {
 			$this->client->validateHmac( filter_input_array( INPUT_GET ), '', filter_input( INPUT_GET, 'signature' ) );
 		} catch ( HmacException $exception ) {
@@ -940,7 +938,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 
 		try {
-			$order_query = new WC_Order_Query(
+			$orders = wc_get_orders(
 				array(
 					'limit'      => 1,
 					'meta_key'   => '_checkout_reference',
@@ -948,16 +946,18 @@ final class Gateway extends \WC_Payment_Gateway {
 				)
 			);
 
-			$orders = $order_query->get_orders();
-
 			if ( empty( $orders ) ) {
 				$this->log( 'Paytrail: handle_payment_response, orders collection empty for reference: ' . $reference, 'debug' );
 				return;
 			}
-			$order = $orders[0];
 
+			$order = reset( $orders );
+			if ( $order->get_meta( '_checkout_reference' ) !== $reference ) {
+				$this->log( "Paytrail: handle_payment_response, reference mismatch for order {$order->get_id()} and reference: {$reference}", 'debug' );
+				return false;
+			}
 		} catch ( \Exception $e ) {
-			$this->log( 'Paytrail: order_query, failed for reference: ' . $reference, 'debug' );
+			$this->log( "Paytrail: orders query, failed for reference: $reference", 'debug' );
 			return false;
 		}
 
@@ -970,7 +970,7 @@ final class Gateway extends \WC_Payment_Gateway {
 
 			$existing_orders = $transaction_query->get_orders();
 
-			// Cross-check if any other order already has this transaction ID
+			// Cross-check if any other order already has this transaction ID.
 			foreach ( $existing_orders as $existing_order ) {
 				$existing_transaction_id = $existing_order->get_transaction_id();
 
@@ -989,7 +989,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			return false;
 		}
 
-		// Store information that transaction-specific settlement was used
+		// Store information that transaction-specific settlement was used.
 		if ( $this->transaction_settlement_enable ) {
 			$order->update_meta_data( '_paytrail_ppa_transaction_settlement', true );
 			$order->save();
@@ -1005,18 +1005,18 @@ final class Gateway extends \WC_Payment_Gateway {
 
 				$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 
-				// If this transaction has already been processed, don't process again
+				// If this transaction has already been processed, don't process again.
 				if ( $order->get_transaction_id() === $transaction_id ) {
 					$this->log( 'Paytrail: handle_payment_response, transaction id ' . $transaction_id . ' already processed for order ' . $order->get_id(), 'debug' );
 					return false;
 				}
 
-				// Save transient to avoid race condition between redirect and callback processing
+				// Save transient to avoid race condition between redirect and callback processing.
 				\set_transient( 'checkout_transaction_id_processing_' . $transaction_id, 'yes', 60 );
 
 				if ( ! $this->use_provider_selection() ) {
 					$this->log( 'Paytrail: handle_payment_response, use_provider_selection = false for order ' . $order->get_id(), 'debug' );
-					// Get the chosen payment provider and save it to the order
+					// Get the chosen payment provider and save it to the order.
 					$payment_provider = filter_input( INPUT_GET, 'checkout-provider' );
 					$payment_amount   = filter_input( INPUT_GET, 'checkout-amount' );
 
@@ -1027,7 +1027,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					if ( ! empty( $providers['error'] ) ) {
 						$provider_name = ucfirst( $payment_provider );
 					} else {
-						// Get only the wanted payment provider object
+						// Get only the wanted payment provider object.
 						$wanted_provider = $this->get_wanted_provider( $providers, $payment_provider );
 						if ( null !== $wanted_provider ) {
 							$provider_name = ! empty( $wanted_provider->getName() ) ? $wanted_provider->getName() : ucfirst( $wanted_provider->getId() );
@@ -1067,7 +1067,7 @@ final class Gateway extends \WC_Payment_Gateway {
 				// Clear the cart.
 				WC()->cart->empty_cart();
 
-				// Delete transient
+				// Delete transient.
 				\delete_transient( 'checkout_transaction_id_processing_' . $transaction_id );
 
 				break;
@@ -1096,9 +1096,9 @@ final class Gateway extends \WC_Payment_Gateway {
 					)
 				);
 
-				if ( is_array( $latest_order_note ) && isset( $latest_order_note[0] ) ) {
+				if ( \is_array( $latest_order_note ) && isset( $latest_order_note[0] ) ) {
 					if ( $latest_order_note[0]->content === $failed_order_note ) {
-						break;// Don't add another note if the latest note is the same
+						break;// Don't add another note if the latest note is the same.
 					}
 				}
 
