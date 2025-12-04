@@ -149,8 +149,8 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Object constructor
 	 */
-	public function __construct( $params = array() ) {
-		// Set payment gateway ID
+	public function __construct() {
+		// Set payment gateway ID.
 		$this->id = Plugin::GATEWAY_ID;
 
 		$this->has_fields = $this->use_provider_selection();
@@ -204,10 +204,6 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		// Check if transaction settlement is enabled.
 		$this->transaction_settlement_enable = $this->get_option( 'settlement_enablement', 'no' ) === 'yes';
-
-		if ( ! empty( $params ) && isset( $params['callbackMode'] ) ) {
-			$this->callback_mode = true;
-		}
 
 		$this->settlement_prefix = $this->get_option( 'settlement_prefix', '10' );
 
