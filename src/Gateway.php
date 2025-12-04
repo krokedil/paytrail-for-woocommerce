@@ -1150,14 +1150,14 @@ final class Gateway extends \WC_Payment_Gateway {
 		return true;
 	}
 
+	/**
+	 * Checks whether an order has already been paid, and thus considered processed.
+	 *
+	 * @param WC_Order $order The WC order.
+	 * @return bool TRUE if paid, FALSE otherwise.
+	 */
 	protected function validate_order_payment_process_status( WC_Order $order ) {
-		$order_status = $order->get_status();
-
-		if ( 'completed' === $order_status || 'processing' === $order_status ) {
-			// This order has already been processed.
-			return false;
-		}
-		return true;
+		return ! empty( $order->get_date_paid() );
 	}
 
 	/**
