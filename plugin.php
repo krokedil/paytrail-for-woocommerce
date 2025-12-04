@@ -411,12 +411,6 @@ final class Plugin {
 			// Construct the object.
 			self::$instance = new self();
 
-			// Run initialization checks. If any of the checks
-			// fails, interrupt the execution.
-			if ( ! self::$instance->initialization_checks() ) {
-				return;
-			}
-
 			// Check if Composer has been initialized in this directory.
 			// Otherwise we just use global composer autoloading.
 			if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
@@ -439,38 +433,6 @@ final class Plugin {
 		}
 
 		return self::$instance;
-	}
-
-	/**
-	 * Run checks for plugin requirements.
-	 *
-	 * Returns false if checks failed.
-	 *
-	 * @return bool
-	 */
-	protected function initialization_checks() {
-		$errors = array();
-
-		$errors[] = self::check_php_version();
-		$errors[] = self::check_woocommerce_active_status();
-		$errors[] = self::check_woocommerce_version();
-
-		$errors = array_filter( $errors );
-
-		if ( ! empty( $errors ) ) {
-			add_action(
-				'admin_notices',
-				function () use ( $errors ) {
-					echo '<div class="notice notice-error">';
-					array_walk( $errors, 'esc_html_e' );
-					echo '</div>';
-				}
-			);
-
-			return false;
-		} else {
-			return true;
-		}
 	}
 
 	/**

@@ -245,7 +245,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_styles' ) );
 
 		// Check if we are in response phase.
-		add_action( 'init', array( $this, 'on_redirect_to_thankyou_page' ) );
+		add_action( 'template_redirect', array( $this, 'on_redirect_to_thankyou_page' ) );
 	}
 
 
