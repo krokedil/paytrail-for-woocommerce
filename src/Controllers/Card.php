@@ -5,7 +5,6 @@
 
 namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
-use Paytrail\WooCommercePaymentGateway\Gateway;
 use Paytrail\WooCommercePaymentGateway\Plugin;
 // use Paytrail\WooCommercePaymentGateway\Exception;
 use WC_Payment_Tokens;
@@ -15,7 +14,8 @@ use WP_HTTP_Response;
 class Card extends AbstractController {
 
 	protected function add() {
-		$gateway = Gateway::get_instance();
+		$gateway = Plugin::instance()->gateway();
+
 		try {
 			$gateway->add_card_form();
 		} catch ( \Exception $e ) {

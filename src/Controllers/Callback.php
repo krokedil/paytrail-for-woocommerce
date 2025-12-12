@@ -5,7 +5,7 @@
 
 namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
-use Paytrail\WooCommercePaymentGateway\Gateway;
+use Paytrail\WooCommercePaymentGateway\Plugin;
 
 class Callback extends AbstractController {
 
@@ -13,6 +13,6 @@ class Callback extends AbstractController {
 	 * Index method for the Callback controller
 	 */
 	protected function index() {
-		Gateway::get_instance()->set_callback_mode( true );
+		Plugin::instance()->gateway()->set_callback_mode( true );
 	}
 }

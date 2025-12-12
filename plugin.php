@@ -114,6 +114,17 @@ final class Plugin {
 		'Text Domain',
 		'Domain Path',
 	);
+
+	/**
+	 * Gateway instance
+	 *
+	 * @var Gateway
+	 */
+	protected $gateway;
+
+	/**
+	 * Enqueue jQuery script
+	 */
 	public function enqueue_jquery() {
 		// Enqueue jQuery script
 		wp_enqueue_script( 'jquery' );
@@ -131,9 +142,6 @@ final class Plugin {
 
 		// Load the plugin textdomain.
 		load_plugin_textdomain( 'paytrail-for-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
-
-		// Initialize the gateway.
-		add_action( 'init', array( Gateway::class, 'get_instance' ) );
 
 		// Register customizations.
 		add_action( 'customize_register', array( $this, 'checkout_customizations' ) );
@@ -166,6 +174,25 @@ final class Plugin {
 
 		// Add OP Lasku calculator to the product and cart page.
 		add_action( 'woocommerce_init', array( $this, 'op_lasku_init' ) );
+
+		add_action( 'init', array( $this, 'initialize_gateway' ) );
+	}
+
+	/**
+	 * Initialize the gateway
+	 */
+	public function initialize_gateway() {
+		$this->gateway();
+
+		add_filter(
+			'woocommerce_payment_gateways',
+			function ( $gateways ) {
+				$gateways[] = $this->gateway();
+				add_action( 'template_redirect', array( $this->gateway, 'on_redirect_to_thankyou_page' ) );
+
+				return $gateways;
+			}
+		);
 	}
 
 	/**
@@ -411,28 +438,17 @@ final class Plugin {
 	 */
 	public static function instance() {
 		if ( is_null( self::$instance ) ) {
-			// Construct the object.
-			self::$instance = new self();
-
 			// Check if Composer has been initialized in this directory.
 			// Otherwise we just use global composer autoloading.
 			if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
 				require_once __DIR__ . '/vendor/autoload.php';
 			}
 
+			// Construct the object.
+			self::$instance = new self();
+
 			// Create new instance of Router class.
 			new Router();
-
-			// Add the gateway class to WooCommerce.
-			add_filter(
-				'woocommerce_payment_gateways',
-				function ( $gateways ) {
-					$gateways[] = Gateway::class;
-
-					return $gateways;
-				}
-			);
-
 		}
 
 		return self::$instance;
@@ -554,6 +570,20 @@ final class Plugin {
 		if ( isset( $settings['op_lasku_calculator'] ) && 'yes' === $settings['op_lasku_calculator'] ) {
 			new \Paytrail\WooCommercePaymentGateway\Providers\OPLasku();
 		}
+	}
+
+	/**
+	 * Get the Gateway class instance.
+	 *
+	 * @return Gateway
+	 */
+	public function gateway(): Gateway {
+		// If the gateway is not initialized, initialize it.
+		if ( ! isset( $this->gateway ) ) {
+			$this->gateway = new Gateway();
+		}
+
+		return $this->gateway;
 	}
 }
 

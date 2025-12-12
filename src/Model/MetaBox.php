@@ -9,7 +9,7 @@ namespace Paytrail\WooCommercePaymentGateway\Model;
 
 use Paytrail\SDK\Request\PaymentStatusRequest;
 use Paytrail\SDK\Response\PaymentStatusResponse;
-use Paytrail\WooCommercePaymentGateway\Gateway;
+use Paytrail\WooCommercePaymentGateway\Plugin;
 
 /**
  * Paytrail for Woocommerce Meta box model class
@@ -134,7 +134,7 @@ class MetaBox {
 	 * @return PaymentStatusResponse|null
 	 */
 	private function get_payment_status() {
-		$gateway = Gateway::get_instance();
+		$gateway = Plugin::instance()->gateway();
 
 		$request = new PaymentStatusRequest();
 		$request->setTransactionId( $this->order->get_transaction_id() );

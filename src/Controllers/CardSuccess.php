@@ -7,12 +7,12 @@ namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
 use Paytrail\SDK\Exception\HmacException;
 use Paytrail\SDK\Exception\ValidationException;
-use Paytrail\WooCommercePaymentGateway\Gateway;
+use Paytrail\WooCommercePaymentGateway\Plugin;
 
 class CardSuccess extends AbstractController {
 
 	protected function checkout() {
-		$gateway = Gateway::get_instance();
+		$gateway = Plugin::instance()->gateway();
 		try {
 			$gateway->process_card_token();
 			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
@@ -26,7 +26,7 @@ class CardSuccess extends AbstractController {
 	}
 
 	protected function my_account() {
-		$gateway = Gateway::get_instance();
+		$gateway = Plugin::instance()->gateway();
 		try {
 			$gateway->process_card_token();
 			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
@@ -40,7 +40,7 @@ class CardSuccess extends AbstractController {
 	}
 
 	protected function change_payment_method() {
-		$gateway = Gateway::get_instance();
+		$gateway = Plugin::instance()->gateway();
 		try {
 			$gateway->process_card_token();
 			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
