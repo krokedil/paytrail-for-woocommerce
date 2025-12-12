@@ -627,7 +627,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @return void
 	 */
-	public function render_saved_payment_methods() {
+	public static function render_saved_payment_methods() {
 		$view = new View( 'SavedPaymentMethods' );
 
 		$view->render();

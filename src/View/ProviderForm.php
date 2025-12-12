@@ -95,7 +95,7 @@ array_walk(
 			);
 		}
 		if ( is_user_logged_in() && 'creditcard' == $group['id'] ) {
-			( new \Paytrail\WooCommercePaymentGateway\Gateway() )->render_saved_payment_methods();
+			\Paytrail\WooCommercePaymentGateway\Gateway::render_saved_payment_methods();
 		} elseif ( get_option( 'users_can_register' ) == 1 && 'creditcard' == $group['id'] ) {
 			$mypage_link = get_permalink( wc_get_page_id( 'myaccount' ) );
 			echo '<p class="add-card-login-description" role="link">';
