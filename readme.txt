@@ -3,7 +3,7 @@ Contributors: loueranta, kotivuori
 Donate link: https://www.paytrail.com/
 Tags: woocommerce
 Requires at least: 4.9
-Tested up to: 6.8
+Tested up to: 6.9
 Stable tag: 2.5.3
 Requires PHP: 7.3
 License: MIT
