@@ -26,7 +26,6 @@ if ( isset( $data['error'] ) ) {
 	// translators: Paytrail transaction ID.
 	$transaction_id = sprintf( __( '<strong>Paytrail transaction ID:</strong> %s', 'paytrail-for-woocommerce' ), $data['transaction_id'] );
 }
-
 ?>
 <div class='paytrail-meta-box-content'>
 	<?php if ( isset( $error_message ) ) : ?>

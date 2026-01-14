@@ -774,7 +774,6 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	public function get_token_payment_option_html( $html, $token ) {
 		if ( Plugin::GATEWAY_ID !== $token->get_gateway_id() ) {
-			error_log( 'Not the expected gateway ID. Returning original HTML.' );
 			return $html;
 		}
 		$html = sprintf(
@@ -1068,10 +1067,12 @@ final class Gateway extends \WC_Payment_Gateway {
 
 				break;
 			case 'pending':
+				$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 				$this->log( 'Paytrail: handle_payment_response, case = pending', 'debug' );
 				if ( ! $this->validate_order_payment_process_status( $order ) ) {
 					break;
 				}
+				$order->set_transaction_id( $transaction_id );
 				$order->update_status( 'on-hold' );
 				$order->add_order_note( __( 'Payment pending.', 'paytrail-for-woocommerce' ) );
 				break;

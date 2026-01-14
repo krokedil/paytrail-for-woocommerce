@@ -133,7 +133,7 @@ class MetaBox {
 	 *
 	 * @return PaymentStatusResponse|null
 	 */
-	private function get_payment_status() {
+	public function get_payment_status() {
 		$gateway = Plugin::instance()->gateway();
 
 		$request = new PaymentStatusRequest();
@@ -142,10 +142,13 @@ class MetaBox {
 		$client = $gateway->get_client();
 		try {
 			$response = $client->getPaymentStatus( $request );
+			// Log the retrieved response for debugging purposes.
+			Plugin::instance()->gateway()->log(  PaymentStatusRequest::class . ' retrieved: ' . $response->getTransactionId() . ', status: ' . $response->getStatus() . ', amount: ' . $response->getAmount() );
 			if ( $response->getTransactionId() === $this->order->get_transaction_id() ) {
 				return $response;
 			}
 		} catch ( \Exception $e ) {
+			Plugin::instance()->gateway()->log( 'Error retrieving ' . PaymentStatusRequest::class . ': ' . $e->getMessage(), 'error' );
 			return null;
 		}
 
