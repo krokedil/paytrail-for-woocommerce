@@ -25,7 +25,6 @@ class MetaBox extends AbstractController {
 	public function __construct() {
 		add_action( 'add_meta_boxes', array( $this, 'register_meta_box' ), 10, 2 );
 
-		// Maybe trigger the manual invoice sending when the order is set to completed.
 		add_action( 'woocommerce_order_status_completed', array( $this, 'maybe_handle_manual_invoice_request' ) );
 	}
 
@@ -102,15 +101,13 @@ class MetaBox extends AbstractController {
 				return;
 			}
 
-			$manual_invoice_providers = array( 'walley', 'klarna' );
-
 			// Only if the order is for a manual invoice order.
 			$model            = new Model\MetaBox( $order );
 			$payment_status   = $model->get_payment_status();
 			$payment_provider = $payment_status ? strtolower( $payment_status->getProvider() ) : '';
 
 			// Ensure the payment status was retrieved, is still pending, and the provider is one that supports manual invoices. Otherwise skip.
-			if ( empty( $payment_status ) || 'pending' !== $payment_status->getStatus() || ! in_array( $payment_provider, $manual_invoice_providers, true ) ) {
+			if ( empty( $payment_status ) || 'pending' !== $payment_status->getStatus() || ( ! str_contains( $payment_provider, 'walley' ) && ! str_contains( $payment_provider, 'klarna' ) ) ) {
 				return;
 			}
 
