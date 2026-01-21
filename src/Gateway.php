@@ -1001,7 +1001,7 @@ final class Gateway extends \WC_Payment_Gateway {
 				$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 
 				// If this transaction has already been processed, don't process again.
-				if ( $order->get_transaction_id() === $transaction_id ) {
+				if ( $order->get_transaction_id() === $transaction_id && ! empty( $order->get_date_paid() ) ) {
 					$this->log( 'Paytrail: handle_payment_response, transaction id ' . $transaction_id . ' already processed for order ' . $order->get_id(), 'debug' );
 					return false;
 				}
