@@ -14,5 +14,6 @@ class Callback extends AbstractController {
 	 */
 	protected function index() {
 		Plugin::instance()->gateway()->set_callback_mode( true );
+		Plugin::instance()->gateway()->check_paytrail_response(); // Trigger the response check to process any potential payment response.
 	}
 }
