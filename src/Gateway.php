@@ -447,7 +447,7 @@ final class Gateway extends \WC_Payment_Gateway {
 				'label'       => __( 'Enable manual invoice activation', 'paytrail-for-woocommerce' ),
 				'type'        => 'checkbox',
 				'default'     => 'no',
-				'description' => __( 'If paid with invoice payment method, the invoice will not be activated automatically immediately. Currently only supported with Walley.', 'paytrail-for-woocommerce' ),
+				'description' => __( 'For certain invoice payment methods (Walley/Klarna), you can activate the invoice at a later time, for example for pre-ordered products.<br><strong>Activation window</strong><br>Walley: Up to 90 days <br>Klarna: Up to 28 days', 'paytrail-for-woocommerce' ),
 			),
 			'settlement_enablement'       => array(
 				'title'       => __( 'Enable individual settlements', 'paytrail-for-woocommerce' ),
