@@ -20,9 +20,7 @@ use Paytrail\SDK\Exception\HmacException;
 use Paytrail\SDK\Request\RefundRequest;
 use Paytrail\SDK\Client;
 use Paytrail\SDK\Request\EmailRefundRequest;
-use Paytrail\SDK\Model\Provider;
 use Paytrail\SDK\Response\GetTokenResponse;
-use Paytrail\SDK\Response\InvoiceActivationResponse;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentSubscriptionMigration;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentTokenMigration;
 use Paytrail\WooCommercePaymentGateway\Providers\OPLasku;
@@ -76,7 +74,12 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	public $debug = false;
 
-	public $callbackMode = false;
+	/**
+	 * Whether we are in callback mode.
+	 *
+	 * @var boolean
+	 */
+	public $callback_mode = false;
 
 	/**
 	 * Supported features.
@@ -140,8 +143,8 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Object constructor
 	 */
-	public function __construct( $params = array() ) {
-		// Set payment gateway ID
+	public function __construct() {
+		// Set payment gateway ID.
 		$this->id = Plugin::GATEWAY_ID;
 
 		$this->has_fields = $this->use_provider_selection();
@@ -167,7 +170,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->init_settings();
 
 		// Whether we are in test mode or not.
-		$this->enable_test_mode = 'yes' === $this->get_option( 'enable_test_mode', 'no' );
+		$this->enable_test_mode = wc_string_to_bool( $this->get_option( 'enable_test_mode', 'no' ) );
 
 		// Set merchant ID and secret key either from the options or for test mode.
 		if ( $this->enable_test_mode ) {
@@ -178,38 +181,45 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->secret_key  = $this->get_option( 'secret_key' );
 		}
 
-		$platformName = 'paytrail-for-woocommerce-' . \Paytrail\WooCommercePaymentGateway\Plugin::$version;
+		$platform_name = 'paytrail-for-woocommerce-' . \Paytrail\WooCommercePaymentGateway\Plugin::$version;
 
-		// Create SDK client instance
+		// Create SDK client instance.
 		$this->client = new Client(
 			$this->merchant_id,
 			$this->secret_key,
-			$platformName
+			$platform_name
 		);
 
-		// Create Helper instance
+		// Create Helper instance.
 		$this->helper = new Helper();
 
 		// Whether we are in debug mode or not.
-		$this->debug = 'yes' === $this->get_option( 'debug', 'no' );
+		$this->debug = wc_string_to_bool( $this->get_option( 'debug', 'no' ) );
 
-		// Check if transaction settlement is enabled
-		$this->transaction_settlement_enable = $this->get_option( 'settlement_enablement', 'no' ) === 'yes';
-
-		if ( ! empty( $params ) && isset( $params['callbackMode'] ) ) {
-			$this->callbackMode = true;
-		}
+		// Check if transaction settlement is enabled.
+		$this->transaction_settlement_enable = wc_string_to_bool( $this->get_option( 'settlement_enablement', 'no' ) );
 
 		$this->settlement_prefix = $this->get_option( 'settlement_prefix', '10' );
 
 		// Add actions and filters.
 		$this->add_actions();
 
-		// Register stylesheet for payment fields
+		// Register stylesheet for payment fields.
 		$this->register_styles();
 
-		// Register scripts for payment fields
+		// Register scripts for payment fields.
 		$this->register_scripts();
+
+		new Controllers\MetaBox();
+	}
+
+	/**
+	 * Get Paytrail SDK Client instance.
+	 *
+	 * @return Client
+	 */
+	public function get_client() {
+		return $this->client;
 	}
 
 	/**
@@ -233,6 +243,14 @@ final class Gateway extends \WC_Payment_Gateway {
 		add_action( 'template_redirect', array( $this, 'on_redirect_to_thankyou_page' ) );
 	}
 
+	/**
+	 * Set callback mode
+	 *
+	 * @param boolean $mode Callback mode.
+	 */
+	public function set_callback_mode( $mode ) {
+		$this->callback_mode = $mode;
+	}
 
 	/**
 	 * Process Paytrail order on redirect to thankyou-page.
@@ -424,6 +442,13 @@ final class Gateway extends \WC_Payment_Gateway {
 				'title' => __( 'Advanced settings', 'paytrail-for-woocommerce' ),
 				'type'  => 'title',
 			),
+			'manual_invoice_activation'   => array(
+				'title'       => __( 'Manual invoice activation', 'paytrail-for-woocommerce' ),
+				'label'       => __( 'Enable manual invoice activation', 'paytrail-for-woocommerce' ),
+				'type'        => 'checkbox',
+				'default'     => 'no',
+				'description' => __( 'For certain invoice payment methods (Walley/Klarna), you can activate the invoice at a later time, for example for pre-ordered products.<br><strong>Activation window</strong><br>Walley: Up to 90 days <br>Klarna: Up to 28 days', 'paytrail-for-woocommerce' ),
+			),
 			'settlement_enablement'       => array(
 				'title'       => __( 'Enable individual settlements', 'paytrail-for-woocommerce' ),
 				'type'        => 'checkbox',
@@ -598,7 +623,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @return void
 	 */
-	public function render_saved_payment_methods() {
+	public static function render_saved_payment_methods() {
 		$view = new View( 'SavedPaymentMethods' );
 
 		$view->render();
@@ -749,7 +774,6 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	public function get_token_payment_option_html( $html, $token ) {
 		if ( Plugin::GATEWAY_ID !== $token->get_gateway_id() ) {
-			error_log( 'Not the expected gateway ID. Returning original HTML.' );
 			return $html;
 		}
 		$html = sprintf(
@@ -866,10 +890,10 @@ final class Gateway extends \WC_Payment_Gateway {
 			return;
 		}
 
-		$sleepTime         = rand( 0, 3 );
-		$sleepTimeCallback = rand( 3, 6 );
+		$sleepTime         = wp_rand( 0, 3 );
+		$sleepTimeCallback = wp_rand( 3, 6 );
 
-		if ( true === $this->callbackMode ) {
+		if ( true === $this->callback_mode ) {
 			$this->log( 'Paytrail: Callback check_paytrail_response for order ' . $reference, 'debug' );
 			$this->log( 'Paytrail: Wait for ' . $sleepTimeCallback . ' seconds until processing order ' . $reference, 'debug' );
 			sleep( $sleepTimeCallback );
@@ -895,10 +919,10 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param string $status The status of the response.
 	 *
-	 * @return void
+	 * @return bool|null
 	 */
 	public function handle_payment_response( $status ) {
-		// Check the HMAC
+		// Check the HMAC.
 		try {
 			$this->client->validateHmac( filter_input_array( INPUT_GET ), '', filter_input( INPUT_GET, 'signature' ) );
 		} catch ( HmacException $exception ) {
@@ -909,7 +933,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 
 		try {
-			$order_query = new WC_Order_Query(
+			$orders = wc_get_orders(
 				array(
 					'limit'      => 1,
 					'meta_key'   => '_checkout_reference',
@@ -917,16 +941,18 @@ final class Gateway extends \WC_Payment_Gateway {
 				)
 			);
 
-			$orders = $order_query->get_orders();
-
 			if ( empty( $orders ) ) {
 				$this->log( 'Paytrail: handle_payment_response, orders collection empty for reference: ' . $reference, 'debug' );
 				return;
 			}
-			$order = $orders[0];
 
+			$order = reset( $orders );
+			if ( $order->get_meta( '_checkout_reference' ) !== $reference ) {
+				$this->log( "Paytrail: handle_payment_response, reference mismatch for order {$order->get_id()} and reference: {$reference}", 'debug' );
+				return false;
+			}
 		} catch ( \Exception $e ) {
-			$this->log( 'Paytrail: order_query, failed for reference: ' . $reference, 'debug' );
+			$this->log( "Paytrail: orders query, failed for reference: $reference", 'debug' );
 			return false;
 		}
 
@@ -939,7 +965,7 @@ final class Gateway extends \WC_Payment_Gateway {
 
 			$existing_orders = $transaction_query->get_orders();
 
-			// Cross-check if any other order already has this transaction ID
+			// Cross-check if any other order already has this transaction ID.
 			foreach ( $existing_orders as $existing_order ) {
 				$existing_transaction_id = $existing_order->get_transaction_id();
 
@@ -958,7 +984,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			return false;
 		}
 
-		// Store information that transaction-specific settlement was used
+		// Store information that transaction-specific settlement was used.
 		if ( $this->transaction_settlement_enable ) {
 			$order->update_meta_data( '_paytrail_ppa_transaction_settlement', true );
 			$order->save();
@@ -974,18 +1000,18 @@ final class Gateway extends \WC_Payment_Gateway {
 
 				$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 
-				// If this transaction has already been processed, don't process again
-				if ( $order->get_transaction_id() === $transaction_id ) {
+				// If this transaction has already been processed, don't process again.
+				if ( $order->get_transaction_id() === $transaction_id && ! empty( $order->get_date_paid() ) ) {
 					$this->log( 'Paytrail: handle_payment_response, transaction id ' . $transaction_id . ' already processed for order ' . $order->get_id(), 'debug' );
 					return false;
 				}
 
-				// Save transient to avoid race condition between redirect and callback processing
+				// Save transient to avoid race condition between redirect and callback processing.
 				\set_transient( 'checkout_transaction_id_processing_' . $transaction_id, 'yes', 60 );
 
 				if ( ! $this->use_provider_selection() ) {
 					$this->log( 'Paytrail: handle_payment_response, use_provider_selection = false for order ' . $order->get_id(), 'debug' );
-					// Get the chosen payment provider and save it to the order
+					// Get the chosen payment provider and save it to the order.
 					$payment_provider = filter_input( INPUT_GET, 'checkout-provider' );
 					$payment_amount   = filter_input( INPUT_GET, 'checkout-amount' );
 
@@ -996,7 +1022,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					if ( ! empty( $providers['error'] ) ) {
 						$provider_name = ucfirst( $payment_provider );
 					} else {
-						// Get only the wanted payment provider object
+						// Get only the wanted payment provider object.
 						$wanted_provider = $this->get_wanted_provider( $providers, $payment_provider );
 						if ( null !== $wanted_provider ) {
 							$provider_name = ! empty( $wanted_provider->getName() ) ? $wanted_provider->getName() : ucfirst( $wanted_provider->getId() );
@@ -1036,15 +1062,17 @@ final class Gateway extends \WC_Payment_Gateway {
 				// Clear the cart.
 				WC()->cart->empty_cart();
 
-				// Delete transient
+				// Delete transient.
 				\delete_transient( 'checkout_transaction_id_processing_' . $transaction_id );
 
 				break;
 			case 'pending':
+				$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 				$this->log( 'Paytrail: handle_payment_response, case = pending', 'debug' );
 				if ( ! $this->validate_order_payment_process_status( $order ) ) {
 					break;
 				}
+				$order->set_transaction_id( $transaction_id );
 				$order->update_status( 'on-hold' );
 				$order->add_order_note( __( 'Payment pending.', 'paytrail-for-woocommerce' ) );
 				break;
@@ -1065,9 +1093,9 @@ final class Gateway extends \WC_Payment_Gateway {
 					)
 				);
 
-				if ( is_array( $latest_order_note ) && isset( $latest_order_note[0] ) ) {
+				if ( \is_array( $latest_order_note ) && isset( $latest_order_note[0] ) ) {
 					if ( $latest_order_note[0]->content === $failed_order_note ) {
-						break;// Don't add another note if the latest note is the same
+						break;// Don't add another note if the latest note is the same.
 					}
 				}
 
@@ -1595,42 +1623,42 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @throws \Exception
 	 */
 	private function set_base_payment_data( $payment, $order ) {
-		// Set the order ID as the stamp to the payment request
+		// Set the order ID as the stamp to the payment request.
 		$payment->setStamp( get_current_blog_id() . '-' . $order->get_id() . '-' . time() );
 
-		// Use WooCom order number as reference
+		// Use WooCom order number as reference.
 		$reference = $order->get_order_number();
 
-		// Calculate bank reference for transaction-specific settlements
+		// Calculate bank reference for transaction-specific settlements.
 		if ( $this->transaction_settlement_enable ) {
 			$reference = $this->calculate_reference( $reference );
 		}
 
-		// Set WooCommerce order number as the payment reference
+		// Set WooCommerce order number as the payment reference.
 		$payment->setReference( $reference );
 
-		// Fetch current currency and the cart total
+		// Fetch current currency and the cart total.
 		$currency    = get_woocommerce_currency();
 		$order_total = $this->helper->handle_currency( $order->get_total() );
 
-		// Set the aforementioned values to the payment request
+		// Set the aforementioned values to the payment request.
 		$payment->setCurrency( $currency )
 			->setAmount( $order_total );
 
-		// Create a customer object from the order
+		// Create a customer object from the order.
 		$customer = $this->create_customer( $order );
 
-		// Set the customer object to the payment request
+		// Set the customer object to the payment request.
 		$payment->setCustomer( $customer );
 
-		// Create a billing address and assign it to the payment request
+		// Create a billing address and assign it to the payment request.
 		$billing_address = $this->create_address( $order, 'invoicing' );
 
 		if ( $billing_address ) {
 			$payment->setInvoicingAddress( $billing_address );
 		}
 
-		// Create a shipping address and assign it to the payment request
+		// Create a shipping address and assign it to the payment request.
 		$shipping_address = $this->create_address( $order, 'delivery' );
 
 		if ( $shipping_address ) {
@@ -1639,18 +1667,21 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		$payment->setLanguage( Helper::getLocale() );
 
-		// Get the items from the order
+		// Get the items from the order.
 		$items = $this->get_order_items( $order );
 
 		// Assign the items to the payment request.
 		$payment->setItems( array_filter( $items ) );
 
-		// Create and assign the return urls
+		// Create and assign the return urls.
 		$payment->setRedirectUrls( $this->create_redirect_url( $order ) );
 		$payment->setCallbackUrls( $this->create_callback_url() );
 
-		// Set callback delay to the payment request
+		// Set callback delay to the payment request.
 		$payment->setCallbackDelay( 3 );
+
+		$manual_invoice_activation = wc_string_to_bool( $this->get_option( 'manual_invoice_activation', 'no' ) );
+		$payment->setManualInvoiceActivation( $manual_invoice_activation );
 
 		return $payment;
 	}
@@ -2043,7 +2074,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param \WC_Order $order The order to create the customer object from.
 	 *
-	 * @return \CheckoutFinland\SDK\Model\Customer
+	 * @return Paytrail\SDK\Model\Customer
 	 */
 	protected function create_customer( \WC_Order $order ) {
 		$customer = new Customer();
