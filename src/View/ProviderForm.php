@@ -100,10 +100,14 @@ array_walk(
 			$mypage_link = get_permalink( wc_get_page_id( 'myaccount' ) );
 			echo '<p class="add-card-login-description" role="link">';
 			printf(
-				/* translators: %s - My account / login URL */
-				esc_html__(
-					'You can save your card details for next time by <a href="%s">logging in to the store or by creating an account.</a>',
-					'paytrail-for-woocommerce'
+				wp_kses(
+					/* translators: %s - My account / login URL */
+					__( 'You can save your card details for next time by <a href="%s">logging in to the store or by creating an account.</a>', 'paytrail-for-woocommerce' ),
+					array(
+						'a' => array(
+							'href' => array(),
+						),
+					)
 				),
 				esc_url( $mypage_link )
 			);
