@@ -77,8 +77,8 @@
 			<h2 style="font-weight:300;color:#fff;">
 				<?php
 				printf(
-					/* translators: %s - Customer service URL */
 					wp_kses(
+						/* translators: %s - Customer service URL */
 						__(
 							'<b>Need help?</b> Don\'t hesitate to <a href="%s" target="_blank" style="color:#fff;">contact support!</a>',
 							'paytrail-for-woocommerce'
