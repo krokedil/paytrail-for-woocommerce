@@ -21,10 +21,13 @@
 				?>
 				<p style="font-size:15px;">
 					<?php
-					/* translators: Or <a href="%s" target="_blank">contact sales</a> */
 					printf(
 						wp_kses(
-							__( 'Or <a href="%s" target="_blank">contact sales</a>', 'paytrail-for-woocommerce' ),
+							/* translators: %s - Sales contact URL */
+							__(
+								'Or <a href="%s" target="_blank">contact sales</a>',
+								'paytrail-for-woocommerce'
+							),
 							array(
 								'a' => array(
 									'href'   => array(),
@@ -47,10 +50,13 @@
 				?>
 				<p style="font-size:15px;">
 					<?php
-					/* translators: Credentials can be found in the <a href="%s" target="_blank">merchant panel</a> */
 					printf(
 						wp_kses(
-							__( 'Credentials can be found in the <a href="%s" target="_blank">merchant panel</a>', 'paytrail-for-woocommerce' ),
+							/* translators: %s - Merchant URL */
+							__(
+								'Credentials can be found in the <a href="%s" target="_blank">merchant panel</a>',
+								'paytrail-for-woocommerce'
+							),
 							array(
 								'a' => array(
 									'href'   => array(),
@@ -70,10 +76,13 @@
 			?>
 			<h2 style="font-weight:300;color:#fff;">
 				<?php
-				/* translators: <b>Need help?</b> Don't hesitate to <a href="%s" target="_blank" style="color:#fff;">contact support!</a> */
 				printf(
+					/* translators: %s - Customer service URL */
 					wp_kses(
-						__( '<b>Need help?</b> Don\'t hesitate to <a href="%s" target="_blank" style="color:#fff;">contact support!</a>', 'paytrail-for-woocommerce' ),
+						__(
+							'<b>Need help?</b> Don\'t hesitate to <a href="%s" target="_blank" style="color:#fff;">contact support!</a>',
+							'paytrail-for-woocommerce'
+						),
 						array(
 							'b' => array(),
 							'a' => array(
