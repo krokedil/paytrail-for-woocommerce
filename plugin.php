@@ -9,7 +9,7 @@
  * Tested up to: 6.9
  * Requires PHP: 7.3
  * WC requires at least: 3.5
- * WC tested up to: 10.5.1
+ * WC tested up to: 10.5.3
  * Author: Paytrail
  * Author URI: https://www.paytrail.com/
  * Text Domain: paytrail-for-woocommerce
