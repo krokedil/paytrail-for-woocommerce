@@ -37,10 +37,20 @@ class OrderManagement extends AbstractController {
 		$order   = wc_get_order( $order_id );
 		$gateway = Plugin::instance()->gateway();
 
+		if ( ! $order ) {
+			return;
+		}
+
+		$transaction_id = $order->get_transaction_id();
+		if ( empty( $transaction_id ) ) {
+			$gateway->log(
+				"Cannot cancel pending Klarna invoice for order $order_id: missing transaction ID",
+				'error'
+			);
+			return;
+		}
+
 		try {
-			if ( ! $order ) {
-				return;
-			}
 
 			if ( Plugin::GATEWAY_ID !== $order->get_payment_method() ) {
 				return;
@@ -56,7 +66,6 @@ class OrderManagement extends AbstractController {
 
 			$client = $gateway->get_client();
 
-			$transaction_id = $order->get_transaction_id();
 			if ( empty( $transaction_id ) ) {
 				$gateway->log(
 					"Cannot activate manual invoice for order $order_id: missing transaction ID",
@@ -91,10 +100,20 @@ class OrderManagement extends AbstractController {
 		$order   = wc_get_order( $order_id );
 		$gateway = Plugin::instance()->gateway();
 
+		if ( ! $order ) {
+			return;
+		}
+
+		$transaction_id = $order->get_transaction_id();
+		if ( empty( $transaction_id ) ) {
+			$gateway->log(
+				"Cannot cancel pending Klarna invoice for order $order_id: missing transaction ID",
+				'error'
+			);
+			return;
+		}
+
 		try {
-			if ( ! $order ) {
-				return;
-			}
 
 			if ( Plugin::GATEWAY_ID !== $order->get_payment_method() ) {
 				return;
@@ -113,15 +132,6 @@ class OrderManagement extends AbstractController {
 			}
 
 			$client = $gateway->get_client();
-
-			$transaction_id = $order->get_transaction_id();
-			if ( empty( $transaction_id ) ) {
-				$gateway->log(
-					"Cannot cancel pending Klarna invoice for order $order_id: missing transaction ID",
-					'error'
-				);
-				return;
-			}
 
 			$response = $client->cancelInvoice( $transaction_id );
 
