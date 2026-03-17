@@ -34,8 +34,7 @@ class OrderManagement extends AbstractController {
 	 * @return void
 	 */
 	public function maybe_handle_manual_invoice_request( $order_id ) {
-		$order   = wc_get_order( $order_id );
-		$gateway = Plugin::instance()->gateway();
+		$order = wc_get_order( $order_id );
 
 		if ( ! $order ) {
 			return;
@@ -45,6 +44,7 @@ class OrderManagement extends AbstractController {
 			return;
 		}
 
+		$gateway        = Plugin::instance()->gateway();
 		$transaction_id = $order->get_transaction_id();
 		if ( empty( $transaction_id ) ) {
 			$gateway->log(
@@ -94,8 +94,7 @@ class OrderManagement extends AbstractController {
 	 * @return void
 	 */
 	public function maybe_cancel_pending_klarna_invoice( $order_id ) {
-		$order   = wc_get_order( $order_id );
-		$gateway = Plugin::instance()->gateway();
+		$order = wc_get_order( $order_id );
 
 		if ( ! $order ) {
 			return;
@@ -105,6 +104,7 @@ class OrderManagement extends AbstractController {
 			return;
 		}
 
+		$gateway        = Plugin::instance()->gateway();
 		$transaction_id = $order->get_transaction_id();
 		if ( empty( $transaction_id ) ) {
 			$gateway->log(
