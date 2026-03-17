@@ -80,12 +80,18 @@ class OrderManagement extends AbstractController {
 				InvoiceActivationResponse::class . " Successfully activated invoice for order $order_id with transaction id $transaction_id: " . wp_json_encode( $response )
 			);
 		} catch ( \Exception $e ) {
-			$message = $e->getMessage();
+			$sanitized_message = sanitize_text_field( $e->getMessage() );
 			$gateway->log(
-				"Failed to send manual invoice for order $order_id with transaction id $transaction_id: $message",
+				"Failed to send manual invoice for order $order_id with transaction id $transaction_id: $sanitized_message",
 				'error'
 			);
-			$order->set_status( 'on-hold', __( 'Failed to activate manual invoice: ' . $message, 'paytrail-for-woocommerce' ) );
+			$order->set_status(
+				'on-hold',
+				sprintf(
+					__( 'Failed to activate manual invoice: %s', 'paytrail-for-woocommerce' ),
+					$sanitized_message
+				)
+			);
 			$order->save();
 		}
 	}
@@ -141,12 +147,17 @@ class OrderManagement extends AbstractController {
 			$order->add_order_note( __( 'Cancelled Klarna invoice.', 'paytrail-for-woocommerce' ) );
 			$order->save();
 		} catch ( \Exception $e ) {
-			$message = $e->getMessage();
+			$sanitized_message = sanitize_text_field( $e->getMessage() );
 			$gateway->log(
-				"Failed to cancel invoice for order $order_id with transaction id $transaction_id: $message",
+				"Failed to cancel invoice for order $order_id with transaction id $transaction_id: $sanitized_message",
 				'error'
 			);
-			$order->add_order_note( __( 'Failed to cancel Klarna invoice: ', 'paytrail-for-woocommerce' ) . $message );
+			$order->add_order_note(
+				sprintf(
+					__( 'Failed to cancel Klarna invoice: %s', 'paytrail-for-woocommerce' ),
+					$sanitized_message
+				)
+			);
 			$order->save();
 		}
 	}
