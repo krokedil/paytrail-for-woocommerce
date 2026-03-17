@@ -21,6 +21,8 @@
 
 namespace Paytrail\WooCommercePaymentGateway;
 
+use Paytrail\WooCommercePaymentGateway\Controllers\OrderManagement;
+
 // Ensure that the file is being run within the WordPress context.
 if ( ! defined( 'ABSPATH' ) ) {
 	die;
@@ -177,6 +179,9 @@ final class Plugin {
 
 		add_action( 'init', array( $this, 'initialize_gateway' ) );
 		add_filter( 'woocommerce_payment_gateways', array( $this, 'register_gateway' ) );
+
+		// Initialize order management.
+		new OrderManagement();
 	}
 
 	/**
