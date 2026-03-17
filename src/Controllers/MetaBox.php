@@ -7,7 +7,6 @@
 
 namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
-use Paytrail\SDK\Response\InvoiceActivationResponse;
 use Paytrail\WooCommercePaymentGateway\Plugin;
 use Paytrail\WooCommercePaymentGateway\View;
 use Paytrail\WooCommercePaymentGateway\Model;

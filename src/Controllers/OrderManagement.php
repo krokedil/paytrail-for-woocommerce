@@ -50,20 +50,30 @@ class OrderManagement extends AbstractController {
 			$payment_status   = $model->get_payment_status();
 			$payment_provider = $payment_status ? strtolower( $payment_status->getProvider() ) : '';
 
-			if ( empty( $payment_status ) || 'pending' !== $payment_status->getStatus() || ( ! str_contains( $payment_provider, 'walley' ) && ! str_contains( $payment_provider, 'klarna' ) ) ) {
+			if ( empty( $payment_status ) || 'pending' !== $payment_status->getStatus() || ( false === strpos( $payment_provider, 'walley' ) && false === strpos( $payment_provider, 'klarna' ) ) ) {
 				return;
 			}
 
-			$client   = $gateway->get_client();
-			$response = $client->activateInvoice( $order->get_transaction_id() );
+			$client = $gateway->get_client();
+
+			$transaction_id = $order->get_transaction_id();
+			if ( empty( $transaction_id ) ) {
+				$gateway->log(
+					"Cannot activate manual invoice for order $order_id: missing transaction ID",
+					'error'
+				);
+				return;
+			}
+
+			$response = $client->activateInvoice( $transaction_id );
 
 			$gateway->log(
-				InvoiceActivationResponse::class . " Successfully activated invoice for order $order_id with transaction id {$order->get_transaction_id()}: " . wp_json_encode( $response )
+				InvoiceActivationResponse::class . " Successfully activated invoice for order $order_id with transaction id $transaction_id: " . wp_json_encode( $response )
 			);
 		} catch ( \Exception $e ) {
 			$message = $e->getMessage();
 			$gateway->log(
-				"Failed to send manual invoice for order $order_id with transaction id {$order->get_transaction_id()}: $message",
+				"Failed to send manual invoice for order $order_id with transaction id $transaction_id: $message",
 				'error'
 			);
 			$order->set_status( 'on-hold', __( 'Failed to activate manual invoice: ' . $message, 'paytrail-for-woocommerce' ) );
@@ -98,25 +108,35 @@ class OrderManagement extends AbstractController {
 			}
 
 			$payment_provider = $payment_status ? strtolower( $payment_status->getProvider() ) : '';
-			if ( ! str_contains( $payment_provider, 'klarna' ) ) {
+			if ( false === strpos( $payment_provider, 'klarna' ) ) {
 				return;
 			}
 
-			$client   = $gateway->get_client();
-			$response = $client->cancelInvoice( $order->get_transaction_id() );
+			$client = $gateway->get_client();
+
+			$transaction_id = $order->get_transaction_id();
+			if ( empty( $transaction_id ) ) {
+				$gateway->log(
+					"Cannot cancel pending Klarna invoice for order $order_id: missing transaction ID",
+					'error'
+				);
+				return;
+			}
+
+			$response = $client->cancelInvoice( $transaction_id );
 
 			$gateway->log(
-				InvoiceCancellationResponse::class . " Successfully cancelled invoice for order $order_id with transaction id {$order->get_transaction_id()}: " . wp_json_encode( $response )
+				InvoiceCancellationResponse::class . " Successfully cancelled invoice for order $order_id with transaction id $transaction_id: " . wp_json_encode( $response )
 			);
 			$order->add_order_note( __( 'Cancelled Klarna invoice.', 'paytrail-for-woocommerce' ) );
 			$order->save();
 		} catch ( \Exception $e ) {
 			$message = $e->getMessage();
 			$gateway->log(
-				"Failed to cancel invoice for order $order_id with transaction id {$order->get_transaction_id()}: $message",
+				"Failed to cancel invoice for order $order_id with transaction id $transaction_id: $message",
 				'error'
 			);
-			$order->set_status( 'on-hold', __( 'Failed to cancel invoice: ' . $message, 'paytrail-for-woocommerce' ) );
+			$order->add_order_note( __( 'Failed to cancel Klarna invoice: ', 'paytrail-for-woocommerce' ) . $message );
 			$order->save();
 		}
 	}
