@@ -48,7 +48,7 @@ class OrderManagement extends AbstractController {
 		$transaction_id = $order->get_transaction_id();
 		if ( empty( $transaction_id ) ) {
 			$gateway->log(
-				"Cannot cancel pending Klarna invoice for order $order_id: missing transaction ID",
+				"Cannot activate manual invoice for order $order_id: missing transaction ID",
 				'error'
 			);
 			return;
