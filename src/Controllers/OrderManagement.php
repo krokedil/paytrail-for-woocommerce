@@ -41,6 +41,10 @@ class OrderManagement extends AbstractController {
 			return;
 		}
 
+		if ( Plugin::GATEWAY_ID !== $order->get_payment_method() ) {
+			return;
+		}
+
 		$transaction_id = $order->get_transaction_id();
 		if ( empty( $transaction_id ) ) {
 			$gateway->log(
@@ -51,11 +55,6 @@ class OrderManagement extends AbstractController {
 		}
 
 		try {
-
-			if ( Plugin::GATEWAY_ID !== $order->get_payment_method() ) {
-				return;
-			}
-
 			$model            = new Model\MetaBox( $order );
 			$payment_status   = $model->get_payment_status();
 			$payment_provider = $payment_status ? strtolower( $payment_status->getProvider() ) : '';
@@ -65,14 +64,6 @@ class OrderManagement extends AbstractController {
 			}
 
 			$client = $gateway->get_client();
-
-			if ( empty( $transaction_id ) ) {
-				$gateway->log(
-					"Cannot activate manual invoice for order $order_id: missing transaction ID",
-					'error'
-				);
-				return;
-			}
 
 			$response = $client->activateInvoice( $transaction_id );
 
@@ -110,6 +101,10 @@ class OrderManagement extends AbstractController {
 			return;
 		}
 
+		if ( Plugin::GATEWAY_ID !== $order->get_payment_method() ) {
+			return;
+		}
+
 		$transaction_id = $order->get_transaction_id();
 		if ( empty( $transaction_id ) ) {
 			$gateway->log(
@@ -120,10 +115,6 @@ class OrderManagement extends AbstractController {
 		}
 
 		try {
-
-			if ( Plugin::GATEWAY_ID !== $order->get_payment_method() ) {
-				return;
-			}
 
 			$model = new Model\MetaBox( $order );
 
@@ -145,7 +136,6 @@ class OrderManagement extends AbstractController {
 				InvoiceCancellationResponse::class . " Successfully cancelled invoice for order $order_id with transaction id $transaction_id: " . wp_json_encode( $response )
 			);
 			$order->add_order_note( __( 'Cancelled Klarna invoice.', 'paytrail-for-woocommerce' ) );
-			$order->save();
 		} catch ( \Exception $e ) {
 			$sanitized_message = sanitize_text_field( $e->getMessage() );
 			$gateway->log(
@@ -158,7 +148,6 @@ class OrderManagement extends AbstractController {
 					$sanitized_message
 				)
 			);
-			$order->save();
 		}
 	}
 }
