@@ -178,10 +178,8 @@ final class Plugin {
 		add_action( 'woocommerce_init', array( $this, 'op_lasku_init' ) );
 
 		add_action( 'init', array( $this, 'initialize_gateway' ) );
+		add_action( 'init', array( $this, 'initialize_order_management' ) );
 		add_filter( 'woocommerce_payment_gateways', array( $this, 'register_gateway' ) );
-
-		// Initialize order management.
-		new OrderManagement();
 	}
 
 	/**
@@ -189,6 +187,13 @@ final class Plugin {
 	 */
 	public function initialize_gateway() {
 		$this->gateway();
+	}
+
+	/**
+	 * Initialize order management.
+	 */
+	public function initialize_order_management() {
+		new OrderManagement();
 	}
 
 	/**
