@@ -79,6 +79,7 @@ class OrderManagement extends AbstractController {
 			$order->set_status(
 				'on-hold',
 				sprintf(
+					// Translators: %s is the error message.
 					__( 'Failed to activate manual invoice: %s', 'paytrail-for-woocommerce' ),
 					$sanitized_message
 				)
@@ -144,6 +145,7 @@ class OrderManagement extends AbstractController {
 			);
 			$order->add_order_note(
 				sprintf(
+					// Translators: %s is the error message.
 					__( 'Failed to cancel Klarna invoice: %s', 'paytrail-for-woocommerce' ),
 					$sanitized_message
 				)
