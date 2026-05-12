@@ -1316,21 +1316,24 @@ final class Gateway extends \WC_Payment_Gateway {
 		return $this->process_paytrail_payment( $order, $token_id, $payment_provider, $die_on_error );
 	}
 
+	/**
+	 * Process the payment with Paytrail SDK and return the result.
+	 *
+	 * @param WC_Order $order
+	 * @param string   $token_id
+	 * @param string   $payment_provider
+	 * @param bool     $die_on_error Whether to die on error or not. If false, the error is handled by WooCommerce.
+	 * @return array
+	 * @throws \Exception If the processing fails, this error is handled by WooCommerce.
+	 */
 	public function process_paytrail_payment( $order, $token_id, $payment_provider, $die_on_error ) {
 
 		$is_token_payment = ! empty( $token_id );
 
 		if ( ! $payment_provider && ! $is_token_payment ) {
-			wc_add_notice(
-				__(
-					'The payment provider was not chosen.',
-					'paytrail-for-woocommerce'
-				),
-				'error'
-			);
-			return array(
-				'result' => 'failure',
-			);
+			$message = __( 'The payment provider was not chosen.', 'paytrail-for-woocommerce' );
+			wc_add_notice( $message, 'error' );
+			throw new \Exception( esc_html( $message ) );
 		} elseif ( $is_token_payment ) {
 			$this->log( 'Paytrail: process_payment, is token payment', 'debug' );
 			$payment_provider = 'creditcard';
@@ -1408,9 +1411,8 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->error( $exception, $message, $die_on_error );
 		}
 
-		return array(
-			'result' => 'failure',
-		);
+		// Leave empty to allow WC to handle the error and show the message to the user.
+		throw new \Exception();
 	}
 
 	/**
@@ -1449,16 +1451,13 @@ final class Gateway extends \WC_Payment_Gateway {
 						wc_add_notice( $meta, 'error' );
 					}
 				}
+				$display_message = $jsonData['message'];
 			} else {
 				wc_add_notice( ucwords( $exceptionError ), 'error' );
+				$display_message = ucwords( $exceptionError );
 			}
-		}
 
-		if ( ! isset( $response ) || null === $response ) {
-			$this->log( 'FAILURE: Response is NULL or empty', 'error' );
-			return array(
-				'result' => 'failure',
-			);
+			throw new \Exception( esc_html( $display_message ) );
 		}
 
 		if ( $this->use_provider_selection() ) {
@@ -1533,9 +1532,7 @@ final class Gateway extends \WC_Payment_Gateway {
 
 			$order->add_order_note( $fail_message );
 
-			return array(
-				'result' => 'fail',
-			);
+			throw new \Exception( esc_html( $fail_message ) );
 		}
 		$requires_threeds = $response->getThreeDSecureUrl() !== null;
 
