@@ -1536,8 +1536,8 @@ final class Gateway extends \WC_Payment_Gateway {
 		}
 		$requires_threeds = $response->getThreeDSecureUrl() !== null;
 
-		if ( $response->getTransactionId() === null && $requires_threeds ) {
-			throw new \Exception( 'Transcaction Id not found' );
+		if ( empty( $response->getTransactionId() ) && $requires_threeds ) {
+			throw new \Exception( 'Transaction Id not found' );
 		}
 
 		$message = sprintf(
@@ -1591,8 +1591,8 @@ final class Gateway extends \WC_Payment_Gateway {
 			return false;
 		}
 
-		if ( $response->getTransactionId() === null ) {
-			throw new \Exception( 'Transcaction Id not found' );
+		if ( empty( $response->getTransactionId() ) ) {
+			throw new \Exception( 'Transaction Id not found' );
 		}
 
 		$message = sprintf(
