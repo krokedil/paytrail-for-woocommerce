@@ -1332,7 +1332,6 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		if ( ! $payment_provider && ! $is_token_payment ) {
 			$message = __( 'The payment provider was not chosen.', 'paytrail-for-woocommerce' );
-			wc_add_notice( $message, 'error' );
 			throw new \Exception( esc_html( $message ) );
 		} elseif ( $is_token_payment ) {
 			$this->log( 'Paytrail: process_payment, is token payment', 'debug' );
@@ -1443,19 +1442,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			$jsonData       = json_decode( $exceptionError, true );
 
 			// The API may return JSON data in the message rather than plain string
-			if ( $jsonData && isset( $jsonData['message'] ) ) {
-				wc_add_notice( $jsonData['message'], 'error' );
-				// The API can return multiple error messages so add each of these messages
-				if ( isset( $jsonData['meta'] ) && is_array( $jsonData['meta'] ) ) {
-					foreach ( $jsonData['meta'] as $meta ) {
-						wc_add_notice( $meta, 'error' );
-					}
-				}
-				$display_message = $jsonData['message'];
-			} else {
-				wc_add_notice( ucwords( $exceptionError ), 'error' );
-				$display_message = ucwords( $exceptionError );
-			}
+			$display_message = ( $jsonData && isset( $jsonData['message'] ) ) ? $jsonData['message'] : ucwords( $exceptionError );
 
 			throw new \Exception( esc_html( $display_message ) );
 		}
@@ -1527,8 +1514,6 @@ final class Gateway extends \WC_Payment_Gateway {
 			// Log the error message if debug log is enabled.
 			$this->log( $exception->getMessage() . $exception->getTraceAsString(), 'error' );
 			new \WP_Error( $exception->getCode(), $exception->getMessage() );
-
-			wc_add_notice( $fail_message, 'error' );
 
 			$order->add_order_note( $fail_message );
 
