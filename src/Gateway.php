@@ -1410,8 +1410,6 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->error( $exception, $message, $die_on_error );
 		}
 
-		// Leave empty to allow WC to handle the error and show the message to the user.
-		throw new \Exception();
 	}
 
 	/**
@@ -2464,6 +2462,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @param string     $message   A message to print out for the end user.
 	 * @param bool       $die       Defines if the process should be terminated.
 	 * @throws \Exception If the process is not killed, the error is passed on.
+	 * @return never
 	 */
 	protected function error( \Exception $exception, $message, $die = true ) {
 		$glue = PHP_EOL . '- ';
@@ -2481,9 +2480,9 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		if ( true === $die ) {
 			wp_die( esc_html( $error ), '', esc_html( $exception->getCode() ) );
-		} else {
-			throw $exception;
 		}
+
+		throw $exception;
 	}
 
 	/**
