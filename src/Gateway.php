@@ -1522,7 +1522,8 @@ final class Gateway extends \WC_Payment_Gateway {
 		$requires_threeds = $response->getThreeDSecureUrl() !== null;
 
 		if ( empty( $response->getTransactionId() ) && $requires_threeds ) {
-			throw new \Exception( esc_html( __( 'Transaction Id not found', 'paytrail-for-woocommerce' ) ) );
+			$message = __( 'Transaction Id not found', 'paytrail-for-woocommerce' );
+			throw new \Exception( esc_html( $message ) );
 		}
 
 		$message = \sprintf(
@@ -1577,7 +1578,8 @@ final class Gateway extends \WC_Payment_Gateway {
 		}
 
 		if ( empty( $response->getTransactionId() ) ) {
-			throw new \Exception( esc_html( __( 'Transaction Id not found', 'paytrail-for-woocommerce' ) ) );
+			$message = __( 'Transaction Id not found', 'paytrail-for-woocommerce' );
+			throw new \Exception( esc_html( $message ) );
 		}
 
 		$message = sprintf(
