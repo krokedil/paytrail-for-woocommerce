@@ -1537,10 +1537,10 @@ final class Gateway extends \WC_Payment_Gateway {
 		$requires_threeds = $response->getThreeDSecureUrl() !== null;
 
 		if ( empty( $response->getTransactionId() ) && $requires_threeds ) {
-			throw new \Exception( 'Transaction Id not found' );
+			throw new \Exception( esc_html( __( 'Transaction Id not found', 'paytrail-for-woocommerce' ) ) );
 		}
 
-		$message = sprintf(
+		$message = \sprintf(
 			// translators: First parameter is transaction ID, and the other whether 3DS authentication was required.
 			__(
 				'Transaction %1$s created by token payment using card. Requires 3DS: %2$s',
@@ -1592,7 +1592,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		}
 
 		if ( empty( $response->getTransactionId() ) ) {
-			throw new \Exception( 'Transaction Id not found' );
+			throw new \Exception( esc_html( __( 'Transaction Id not found', 'paytrail-for-woocommerce' ) ) );
 		}
 
 		$message = sprintf(
