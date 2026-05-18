@@ -1154,32 +1154,6 @@ final class Gateway extends \WC_Payment_Gateway {
 			// This order has already been processed.
 			return false;
 		}
-
-		// Discard stale callbacks from a prior payment attempt. Each retried payment
-		// creates a new Paytrail payment object with its own transactionId, so an
-		// incoming transaction ID that differs from the one already stored on the
-		// order indicates a late callback from an earlier attempt that must not be
-		// allowed to override the outcome of the current one.
-		$incoming_transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
-		$stored_transaction_id   = $order->get_transaction_id();
-
-		if (
-			! empty( $stored_transaction_id )
-			&& ! empty( $incoming_transaction_id )
-			&& $stored_transaction_id !== $incoming_transaction_id
-		) {
-			$this->log(
-				sprintf(
-					'Paytrail: discarding stale callback for order %1$d. Stored transaction ID: %2$s, incoming: %3$s.',
-					$order->get_id(),
-					$stored_transaction_id,
-					$incoming_transaction_id
-				),
-				'info'
-			);
-			return false;
-		}
-
 		return true;
 	}
 
