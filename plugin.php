@@ -125,14 +125,6 @@ final class Plugin {
 	protected $gateway;
 
 	/**
-	 * Enqueue jQuery script
-	 */
-	public function enqueue_jquery() {
-		// Enqueue jQuery script
-		wp_enqueue_script( 'jquery' );
-	}
-
-	/**
 	 * Constructor function
 	 */
 	protected function __construct() {
@@ -170,8 +162,7 @@ final class Plugin {
 		// Blocks compatibility.
 		add_action( 'woocommerce_blocks_loaded', array( __CLASS__, 'register_blocks_support' ) );
 
-		// Enqueue jQuery.
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_jquery' ) );
+		// Enqueue jQuery UI Dialog only on the Paytrail settings page.
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_jquery_scripts' ) );
 
 		// Add OP Lasku calculator to the product and cart page.
@@ -236,16 +227,12 @@ final class Plugin {
 	public function enqueue_jquery_scripts( $hook ) {
 		if ( 'woocommerce_page_wc-settings' === $hook && isset( $_GET['tab'] ) && 'checkout' === $_GET['tab'] && isset( $_GET['section'] ) && 'paytrail' === $_GET['section'] ) {
 
-			wp_enqueue_script( 'jquery' );
-			// Enqueue jQuery UI Core
-			wp_enqueue_script( 'jquery-ui-core' );
-			// Enqueue jQuery UI Dialog
+			// Enqueue jQuery UI Dialog (pulls in jquery-ui-core and jquery automatically)
 			wp_enqueue_script( 'jquery-ui-dialog' );
 			// Add jQuery UI styles
 			wp_enqueue_style( 'jquery-ui-css', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css', array(), '1.12.1' );
 			// Enqueue intro scripts
 			self::register_intro_scripts();
-
 		}
 	}
 
