@@ -234,7 +234,7 @@ final class Plugin {
 	 * Enqueue jQuery UI from WordPress core
 	 */
 	public function enqueue_jquery_scripts( $hook ) {
-		if ( $hook == 'woocommerce_page_wc-settings' && isset( $_GET['tab'] ) && $_GET['tab'] == 'checkout' && isset( $_GET['section'] ) && $_GET['section'] == 'paytrail' ) {
+		if ( 'woocommerce_page_wc-settings' === $hook && isset( $_GET['tab'] ) && 'checkout' === $_GET['tab'] && isset( $_GET['section'] ) && 'paytrail' === $_GET['section'] ) {
 
 			wp_enqueue_script( 'jquery' );
 			// Enqueue jQuery UI Core
@@ -256,23 +256,23 @@ final class Plugin {
 		?>
 			<style type="text/css">
 				.paytrail-provider-group {
-					background-color: <?php echo get_theme_mod( 'paytrail_group_background', '#ebebeb' ); ?> !important;
-					color: <?php echo get_theme_mod( 'paytrail_group_text', '#515151' ); ?> !important;
+					background-color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_background', '#ebebeb' ) ); ?> !important;
+					color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_text', '#515151' ) ); ?> !important;
 				}
 				.paytrail-provider-group.selected {
-					background-color: <?php echo get_theme_mod( 'paytrail_group_highlighted_background', '#33798d' ); ?> !important;
-					color: <?php echo get_theme_mod( 'paytrail_group_highlighted_text', '#ffffff' ); ?> !important;
+					background-color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_highlighted_background', '#33798d' ) ); ?> !important;
+					color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_highlighted_text', '#ffffff' ) ); ?> !important;
 				}
 				.paytrail-provider-group.selected div {
-					color: <?php echo get_theme_mod( 'paytrail_group_highlighted_text', '#ffffff' ); ?> !important;
+					color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_highlighted_text', '#ffffff' ) ); ?> !important;
 				}
 				.paytrail-provider-group:hover {
-					background-color: <?php echo get_theme_mod( 'paytrail_group_hover_background', '#d0d0d0' ); ?> !important;
-					color: <?php echo get_theme_mod( 'paytrail_group_hover_text', '#515151' ); ?> !important;
+					background-color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_hover_background', '#d0d0d0' ) ); ?> !important;
+					color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_hover_text', '#515151' ) ); ?> !important;
 				}
 				.paytrail-provider-group.selected:hover {
-					background-color: <?php echo get_theme_mod( 'paytrail_group_highlighted_background', '#33798d' ); ?> !important;
-					color: <?php echo get_theme_mod( 'paytrail_group_highlighted_text', '#ffffff' ); ?> !important;
+					background-color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_highlighted_background', '#33798d' ) ); ?> !important;
+					color: <?php echo esc_attr( get_theme_mod( 'paytrail_group_highlighted_text', '#ffffff' ) ); ?> !important;
 				}
 				.woocommerce-checkout #payment .paytrail-woocommerce-payment-fields--list-item--input:checked+.paytrail-woocommerce-payment-fields--list-item--wrapper, .woocommerce-checkout #payment .paytrail-woocommerce-payment-fields--list-item:hover .paytrail-woocommerce-payment-fields--list-item--wrapper {
 					border: 2px solid <?php esc_html_e( get_theme_mod( 'paytrail_method_highlighted', '#33798d' ) ); ?> !important;
