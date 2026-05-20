@@ -242,7 +242,7 @@ final class Plugin {
 			// Enqueue jQuery UI Dialog
 			wp_enqueue_script( 'jquery-ui-dialog' );
 			// Add jQuery UI styles
-			wp_enqueue_style( 'jquery-ui-css', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css' );
+			wp_enqueue_style( 'jquery-ui-css', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css', array(), '1.12.1' );
 			// Enqueue intro scripts
 			self::register_intro_scripts();
 
