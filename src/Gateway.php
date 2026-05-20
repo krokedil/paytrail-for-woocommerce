@@ -1316,21 +1316,23 @@ final class Gateway extends \WC_Payment_Gateway {
 		return $this->process_paytrail_payment( $order, $token_id, $payment_provider, $die_on_error );
 	}
 
+	/**
+	 * Process the payment with Paytrail SDK and return the result.
+	 *
+	 * @param WC_Order $order
+	 * @param string   $token_id
+	 * @param string   $payment_provider
+	 * @param bool     $die_on_error Whether to die on error or not. If false, the error is handled by WooCommerce.
+	 * @return array
+	 * @throws \Exception If the processing fails, this error is handled by WooCommerce.
+	 */
 	public function process_paytrail_payment( $order, $token_id, $payment_provider, $die_on_error ) {
 
 		$is_token_payment = ! empty( $token_id );
 
 		if ( ! $payment_provider && ! $is_token_payment ) {
-			wc_add_notice(
-				__(
-					'The payment provider was not chosen.',
-					'paytrail-for-woocommerce'
-				),
-				'error'
-			);
-			return array(
-				'result' => 'failure',
-			);
+			$message = __( 'The payment provider was not chosen.', 'paytrail-for-woocommerce' );
+			throw new \Exception( esc_html( $message ) );
 		} elseif ( $is_token_payment ) {
 			$this->log( 'Paytrail: process_payment, is token payment', 'debug' );
 			$payment_provider = 'creditcard';
@@ -1408,9 +1410,6 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->error( $exception, $message, $die_on_error );
 		}
 
-		return array(
-			'result' => 'failure',
-		);
 	}
 
 	/**
@@ -1441,24 +1440,9 @@ final class Gateway extends \WC_Payment_Gateway {
 			$jsonData       = json_decode( $exceptionError, true );
 
 			// The API may return JSON data in the message rather than plain string
-			if ( $jsonData && isset( $jsonData['message'] ) ) {
-				wc_add_notice( $jsonData['message'], 'error' );
-				// The API can return multiple error messages so add each of these messages
-				if ( isset( $jsonData['meta'] ) && is_array( $jsonData['meta'] ) ) {
-					foreach ( $jsonData['meta'] as $meta ) {
-						wc_add_notice( $meta, 'error' );
-					}
-				}
-			} else {
-				wc_add_notice( ucwords( $exceptionError ), 'error' );
-			}
-		}
+			$display_message = ( $jsonData && isset( $jsonData['message'] ) ) ? $jsonData['message'] : ucwords( $exceptionError );
 
-		if ( ! isset( $response ) || null === $response ) {
-			$this->log( 'FAILURE: Response is NULL or empty', 'error' );
-			return array(
-				'result' => 'failure',
-			);
+			throw new \Exception( esc_html( $display_message ) );
 		}
 
 		if ( $this->use_provider_selection() ) {
@@ -1529,21 +1513,18 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->log( $exception->getMessage() . $exception->getTraceAsString(), 'error' );
 			new \WP_Error( $exception->getCode(), $exception->getMessage() );
 
-			wc_add_notice( $fail_message, 'error' );
-
 			$order->add_order_note( $fail_message );
 
-			return array(
-				'result' => 'fail',
-			);
+			throw new \Exception( esc_html( $fail_message ) );
 		}
 		$requires_threeds = $response->getThreeDSecureUrl() !== null;
 
-		if ( $response->getTransactionId() === null && $requires_threeds ) {
-			throw new \Exception( 'Transcaction Id not found' );
+		if ( empty( $response->getTransactionId() ) && $requires_threeds ) {
+			$message = __( 'Transaction Id not found', 'paytrail-for-woocommerce' );
+			throw new \Exception( esc_html( $message ) );
 		}
 
-		$message = sprintf(
+		$message = \sprintf(
 			// translators: First parameter is transaction ID, and the other whether 3DS authentication was required.
 			__(
 				'Transaction %1$s created by token payment using card. Requires 3DS: %2$s',
@@ -1594,8 +1575,9 @@ final class Gateway extends \WC_Payment_Gateway {
 			return false;
 		}
 
-		if ( $response->getTransactionId() === null ) {
-			throw new \Exception( 'Transcaction Id not found' );
+		if ( empty( $response->getTransactionId() ) ) {
+			$message = __( 'Transaction Id not found', 'paytrail-for-woocommerce' );
+			throw new \Exception( esc_html( $message ) );
 		}
 
 		$message = sprintf(
@@ -2480,6 +2462,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @param string     $message   A message to print out for the end user.
 	 * @param bool       $die       Defines if the process should be terminated.
 	 * @throws \Exception If the process is not killed, the error is passed on.
+	 * @return never
 	 */
 	protected function error( \Exception $exception, $message, $die = true ) {
 		$glue = PHP_EOL . '- ';
@@ -2497,9 +2480,9 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		if ( true === $die ) {
 			wp_die( esc_html( $error ), '', esc_html( $exception->getCode() ) );
-		} else {
-			throw $exception;
 		}
+
+		throw $exception;
 	}
 
 	/**
