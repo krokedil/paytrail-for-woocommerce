@@ -12,11 +12,11 @@
         "@woocommerce/dependency-extraction-webpack-plugin": "2.2.0",
         "@wordpress/scripts": "^30.0.2",
         "cross-env": "7.0.3",
-        "mini-css-extract-plugin": "^2.7.7",
-        "sass-loader": "^12.6.0",
         "css-loader": "^6.7.1",
+        "cssnano": "^6.0.0",
+        "mini-css-extract-plugin": "^2.7.7",
         "postcss-loader": "^7.2.4",
-        "cssnano": "^6.0.0"
+        "sass-loader": "^12.6.0"
     },
     "scripts": {
         "start": "wp-scripts start",
