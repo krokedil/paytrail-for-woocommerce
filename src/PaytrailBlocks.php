@@ -124,13 +124,24 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 		$payment_data = $context->payment_data;
 		$gateway      = $this->get_gateway();
 
+		// Re-load the order from the database. The Store API passes its in-memory order
+		// instance, which does not see data saved to the order by other plugins during the
+		// draft -> pending transition, e.g. sequential order number plugins that set the
+		// order number on the woocommerce_new_order hook. The legacy checkout gateway flow
+		// re-loads the order by ID the same way.
+		$order = wc_get_order( $context->order->get_id() );
+
+		if ( ! $order ) {
+			$order = $context->order;
+		}
+
 		// Check if tokenized card is used.
 		if ( ! empty( $payment_data['wc-paytrail-payment-token'] ) ) {
 			$token_id = $payment_data['wc-paytrail-payment-token'];
 			$token    = WC_Payment_Tokens::get( $token_id );
 
 			if ( $token && $token->validate() ) {
-				$payment_result = $gateway->process_paytrail_payment( $context->order, $token_id, null, false );
+				$payment_result = $gateway->process_paytrail_payment( $order, $token_id, null, false );
 
 				if ( 'success' === $payment_result['result'] ) {
 					$result->set_status( 'success' );
@@ -150,7 +161,7 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 
 		// Process payment normally if no tokenized card is used.
 		$payment_result = $gateway->process_paytrail_payment(
-			$context->order,
+			$order,
 			null,
 			! empty( $payment_data['payment_provider'] )
 				? $payment_data['payment_provider']
