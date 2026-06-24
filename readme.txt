@@ -58,6 +58,7 @@ With test credentials, you can test most of the payment methods included in Payt
 
 = 2.7.1 =
 - Fixed an issue where payment errors during checkout could be silently discarded instead of being shown to customers.
+- Fixed a compatibility issue with sequential order number plugins in the block checkout, where the assigned order number was not included in the payment request.
 - Fixed invalid HTML attributes in the plugin's onboarding form that could affect its appearance. Thanks to @szepeviktor for contributing this fix!
 - Fixed duplicate script loading caused by redundant jQuery enqueue calls. Thanks to @szepeviktor for contributing this improvement!
 
