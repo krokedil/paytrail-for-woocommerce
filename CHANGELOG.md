@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.1] - 2026-06-24
+### Fixed
+- Fixed an issue where payment errors during checkout could be silently discarded instead of being shown to customers.
+- Fixed a compatibility issue with sequential order number plugins in the block checkout, where the assigned order number was not included in the payment request.
+- Fixed invalid HTML attributes in the plugin's onboarding form that could affect its appearance. Thanks to [@szepeviktor](https://github.com/szepeviktor) for contributing this fix!
+- Fixed duplicate script loading caused by redundant jQuery enqueue calls. Thanks to [@szepeviktor](https://github.com/szepeviktor) for contributing this improvement!
+
 ## [2.7.0] - 2026-03-31
 ### Added
 - Added support for cancelling pending Klarna invoices.

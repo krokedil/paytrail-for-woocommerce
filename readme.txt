@@ -3,8 +3,8 @@ Contributors: loueranta, kotivuori
 Donate link: https://www.paytrail.com/
 Tags: woocommerce
 Requires at least: 4.9
-Tested up to: 6.9
-Stable tag: 2.7.0
+Tested up to: 7.0
+Stable tag: 2.7.1
 Requires PHP: 7.3
 License: MIT
 License URI: https://opensource.org/licenses/MIT
@@ -55,6 +55,12 @@ Test credentials:
 With test credentials, you can test most of the payment methods included in Paytrail’s payment service. You can find the payment method specific credentials needed for testing in Paytrail’s [documentation](https://docs.paytrail.com/#/payment-method-providers).
 
 == Changelog ==
+
+= 2.7.1 =
+- Fixed an issue where payment errors during checkout could be silently discarded instead of being shown to customers.
+- Fixed a compatibility issue with sequential order number plugins in the block checkout, where the assigned order number was not included in the payment request.
+- Fixed invalid HTML attributes in the plugin's onboarding form that could affect its appearance. Thanks to @szepeviktor for contributing this fix!
+- Fixed duplicate script loading caused by redundant jQuery enqueue calls. Thanks to @szepeviktor for contributing this improvement!
 
 = 2.7.0 =
 - Added support for cancelling pending Klarna invoices.
