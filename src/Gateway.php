@@ -1920,6 +1920,11 @@ final class Gateway extends \WC_Payment_Gateway {
 
 			$refund->setCallbackUrls( $url );
 
+			$refund_email = $order->get_billing_email();
+			if ( is_email( $refund_email ) ) {
+				$refund->setEmail( $refund_email );
+			}
+
 			$transaction_id = $order->get_transaction_id();
 
 			$order->add_order_note(
@@ -1942,11 +1947,9 @@ final class Gateway extends \WC_Payment_Gateway {
 						switch ( $e->getCode() ) {
 							case 422:
 								// An email refund request is needed.
-								$email = $order->get_billing_email();
-
 								$email_refund_request = new EmailRefundRequest();
 
-								$email_refund_request->setEmail( $email );
+								$email_refund_request->setEmail( $refund->getEmail() );
 								$email_refund_request->setAmount( $refund->getAmount() );
 								$email_refund_request->setCallbackUrls( $refund->getCallbackUrls() );
 
