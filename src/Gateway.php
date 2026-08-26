@@ -1921,7 +1921,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			$refund->setCallbackUrls( $url );
 
 			$refund_email = $order->get_billing_email();
-			if ( is_email( $refund_email ) ) {
+			if ( ! empty( $refund_email ) ) {
 				$refund->setEmail( $refund_email );
 			}
 
