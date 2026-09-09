@@ -149,7 +149,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		// Set payment gateway ID.
 		$this->id = Plugin::GATEWAY_ID;
 
-		$this->has_fields = $this->use_provider_selection();
+		$this->has_fields = $this->use_provider_selection() || Subscriptions::is_change_payment_method_request();
 
 		// Get dynamic payment method info.
 		$this->method_info = $this->get_method_info();
@@ -640,31 +640,39 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Add card form
 	 *
-	 * @param string $context The context the card is being added from.
+	 * @param string $context         The context the card is being added from.
+	 * @param int    $subscription_id The subscription whose payment method is being changed, when
+	 *                                the context is change_payment_method.
 	 * @return void
 	 * @throws HmacException If the response signature does not validate.
 	 * @throws ValidationException If the request is rejected by the API.
 	 */
-	public function add_card_form( $context = Plugin::ADD_CARD_CONTEXT_CHECKOUT ) {
+	public function add_card_form( $context = Plugin::ADD_CARD_CONTEXT_CHECKOUT, $subscription_id = 0 ) {
 		$datetime       = new \DateTime();
 		$checkout_nonce = sha1( uniqid( true ) );
 
-		if ( Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT === $context ) {
-			$success_url = Router::get_url( Plugin::ADD_CARD_REDIRECT_SUCCESS_URL, Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT );
-			$cancel_url  = Router::get_url( Plugin::ADD_CARD_REDIRECT_CANCEL_URL, Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT );
-		} elseif ( Helper::getIsChangeSubscriptionPaymentMethod() ) {
-			$success_url = Router::get_url(
-				Plugin::ADD_CARD_REDIRECT_SUCCESS_URL,
-				Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD
-			);
-			$cancel_url  = Router::get_url(
-				Plugin::ADD_CARD_REDIRECT_CANCEL_URL,
-				Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD
-			);
-		} else {
-			$success_url = Router::get_url( Plugin::ADD_CARD_REDIRECT_SUCCESS_URL, Plugin::ADD_CARD_CONTEXT_CHECKOUT );
-			$cancel_url  = Router::get_url( Plugin::ADD_CARD_REDIRECT_CANCEL_URL, Plugin::ADD_CARD_CONTEXT_CHECKOUT );
+		switch ( $context ) {
+			case Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT:
+				$return_context = Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT;
+				$return_args    = array();
+				break;
+			case Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD:
+				$return_context = Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD;
+				$return_args    = array( 'change_payment_method' => absint( $subscription_id ) );
+
+				if ( Subscriptions::is_update_all_requested() ) {
+					$return_args[ Subscriptions::UPDATE_ALL_QUERY_ARG ] = 1;
+				}
+				break;
+			default:
+				$return_context = Plugin::ADD_CARD_CONTEXT_CHECKOUT;
+				$return_args    = array();
+				break;
 		}
+
+		$success_url = add_query_arg( $return_args, Router::get_url( Plugin::ADD_CARD_REDIRECT_SUCCESS_URL, $return_context ) );
+		$cancel_url  = add_query_arg( $return_args, Router::get_url( Plugin::ADD_CARD_REDIRECT_CANCEL_URL, $return_context ) );
+
 		$this->log( 'Paytrail: try to add new card', 'debug' );
 
 		$add_card_form_request = new AddCardFormRequest();
@@ -691,7 +699,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Process card token
 	 *
-	 * @return bool
+	 * @return WC_Payment_Token_CC|null The saved token, or null if it could not be saved.
 	 * @throws HmacException If the response signature does not validate.
 	 * @throws ValidationException If the request is rejected by the API.
 	 */
@@ -702,14 +710,14 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		$response = $this->client->createGetTokenRequest( $get_token_request );
 
-		return (bool) $this->save_card_token( $response );
+		return $this->save_card_token( $response );
 	}
 
 	/**
 	 * Save card token
 	 *
 	 * @param GetTokenResponse $card_token The token response returned by the API.
-	 * @return bool
+	 * @return WC_Payment_Token_CC|null The saved token, or null if it could not be saved.
 	 */
 	private function save_card_token( GetTokenResponse $card_token ) {
 		$this->log( 'Paytrail: save_card_token', 'debug' );
@@ -722,9 +730,12 @@ final class Gateway extends \WC_Payment_Gateway {
 		$token->set_token( $card_token->getToken() );
 		$token->set_user_id( get_current_user_id() );
 		$token->set_gateway_id( Plugin::GATEWAY_ID );
-		\WC_Payment_Tokens::set_users_default( get_current_user_id(), $token->get_id() );
 
-		return $token->save();
+		if ( ! $token->save() ) {
+			return null;
+		}
+
+		return $token;
 	}
 
 	/**
@@ -1284,11 +1295,34 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @return void
 	 */
 	public function payment_fields() {
+		if ( Subscriptions::is_change_payment_method_request() ) {
+			$this->change_payment_method_fields();
+
+			return;
+		}
+
 		if ( is_checkout() && $this->use_provider_selection() ) {
 			$this->provider_form();
 		} elseif ( is_checkout() ) {
 			$this->payment_description();
 		}
+	}
+
+	/**
+	 * Show the saved card list on the subscription change payment method form.
+	 *
+	 * @return void
+	 */
+	protected function change_payment_method_fields() {
+		$this->payment_description();
+
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		echo '<div class="paytrail-provider-group selected">';
+		self::render_saved_payment_methods();
+		echo '</div>';
 	}
 
 	/**
@@ -1302,6 +1336,10 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->log( 'Paytrail: process_payment', 'debug' );
 		$order    = wc_get_order( $order_id );
 		$token_id = filter_input( INPUT_POST, 'wc-paytrail-payment-token' );
+
+		if ( $order instanceof \WC_Subscription ) {
+			return $this->process_change_payment_method( $order );
+		}
 
 		// Define if the process should die if an error occurs.
 		$die_on_error = filter_input( INPUT_POST, 'woocommerce_pay' ) ? true : false;
@@ -1336,6 +1374,36 @@ final class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
+	 * Point a subscription at one of the customer's saved cards.
+	 *
+	 * @param \WC_Subscription $subscription The subscription to update.
+	 * @return array
+	 * @throws \Exception If no usable card was chosen. Subscriptions turns this into a notice.
+	 */
+	protected function process_change_payment_method( $subscription ) {
+		$this->log( 'Paytrail: process_change_payment_method', 'debug' );
+
+		$token_id = absint( filter_input( INPUT_POST, 'wc-paytrail-payment-token', FILTER_SANITIZE_NUMBER_INT ) );
+		$token    = $token_id ? \WC_Payment_Tokens::get( $token_id ) : null;
+
+		if ( ! $token
+			|| Plugin::GATEWAY_ID !== $token->get_gateway_id()
+			|| (int) $token->get_user_id() !== get_current_user_id()
+		) {
+			throw new \Exception(
+				esc_html__( 'Please choose one of your saved cards, or add a new one, to use for this subscription.', 'paytrail-for-woocommerce' )
+			);
+		}
+
+		$subscription = Subscriptions::commit_payment_method_change( $subscription, $token );
+
+		return array(
+			'result'   => 'success',
+			'redirect' => $subscription->get_view_order_url(),
+		);
+	}
+
+	/**
 	 * Process the payment with Paytrail SDK and return the result.
 	 *
 	 * @param WC_Order $order            The order being paid.
@@ -1363,11 +1431,11 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->log( 'Paytrail: process_payment, add_payment_token', 'debug' );
 			$order->add_payment_token( $token );
 
-			if ( $this->helper::getIsSubscriptionsEnabled() ) {
-				$subscriptions = wcs_get_subscriptions_for_order( $order->ID );
+			if ( Subscriptions::is_automatic_subscription_context() ) {
+				$subscriptions = wcs_get_subscriptions_for_order( $order, array( 'order_type' => 'any' ) );
 				$this->log( 'Paytrail: add_payment_token to subscriptions', 'debug' );
 				foreach ( $subscriptions as $subscription ) {
-					$subscription->add_payment_token( $token );
+					Subscriptions::set_subscription_token( $subscription, $token );
 				}
 			}
 
@@ -1811,23 +1879,15 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->log( 'Paytrail: scheduled_subscription_payment', 'debug' );
 		$fail_message = __( 'Cannot schedule subscription payment. No valid tokens found for order.', 'paytrail-for-woocommerce' );
 
-		$tokens       = \WC_Payment_Tokens::get_order_tokens( $order->get_id() );
-		$valid_tokens = array();
-		foreach ( $tokens as $token ) {
-			if ( ! $token->validate() ) {
-				continue;
-			}
-			$valid_tokens[] = $token;
-		}
-		if ( empty( $valid_tokens ) ) {
+		$token = Subscriptions::resolve_renewal_token( $order );
+
+		if ( ! $token ) {
 			// Log the error message if debug log is enabled.
 			$this->log( $fail_message, 'error' );
 			$order->add_order_note( $fail_message );
 			return false;
 		}
 		try {
-			$token = reset( $valid_tokens );
-
 			$payment = new MitPaymentRequest();
 			$payment->setToken( $token->get_token() );
 
