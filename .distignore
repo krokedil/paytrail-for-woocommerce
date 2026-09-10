@@ -2,6 +2,11 @@
 /.git
 /.github
 /node_modules
+/tests
+
+codeception.yml
+allurerc.mjs
+allurerc.single.mjs
 
 .distignore
 .gitignore
