@@ -456,7 +456,7 @@ CREATE TABLE `wp_users` (
 `display_name` text NOT NULL ON CONFLICT REPLACE DEFAULT '' COLLATE NOCASE);
 
 INSERT INTO wp_users ('ID','user_login','user_pass','user_nicename','user_email','user_url','user_registered','user_activation_key','user_status','display_name') VALUES
-('1','admin','$wp$2y$12$Ow2CPfVgLR8DcD1z9RYZduZhVpujuR6WrAglEnNT8/rCyArqU2vBS','admin','admin@localhost.test','http://localhost:5513','2026-09-04 23:07:36','','0','admin');
+('1','admin','$wp$2y$12$Ow2CPfVgLR8DcD1z9RYZduZhVpujuR6WrAglEnNT8/rCyArqU2vBS','admin','admin@localhost.test','http://localhost:8080','2026-09-04 23:07:36','','0','admin');
 
 DROP TABLE IF EXISTS wp_usermeta;
 CREATE TABLE `wp_usermeta` (

@@ -17,7 +17,7 @@ WP_ROOT="tests/_wordpress"
 DB_FILE="${WP_ROOT}/data/db.sqlite"
 DB_SNAPSHOT="${WP_ROOT}/data/db.sqlite_snapshot"
 DUMP_PATH="tests/Support/Data/dump.sql"
-PORT="${BUILTIN_SERVER_PORT:-5513}"
+PORT="${BUILTIN_SERVER_PORT:-8080}"
 WP="wp --path=${WP_ROOT}"
 
 # wp-cli runs outside Codeception, so wp-browser's Symlinker has not run yet.
@@ -37,12 +37,12 @@ rm -f "${DB_FILE}" "${DB_SNAPSHOT}"
 # WORDPRESS_ADMIN_PASSWORD at request time.
 echo "==> Installing WordPress..."
 ${WP} core install \
-    --url="http://localhost:${PORT}" \
-    --title="Paytrail Test" \
-    --admin_user="admin" \
-    --admin_email="admin@localhost.test" \
-    --admin_password="placeholder" \
-    --skip-email
+--url="http://localhost:${PORT}" \
+--title="Paytrail Test" \
+--admin_user="admin" \
+--admin_email="admin@localhost.test" \
+--admin_password="placeholder" \
+--skip-email
 
 echo "==> Setting permalinks..."
 ${WP} rewrite structure '/%postname%/' --hard
@@ -78,8 +78,8 @@ ${WP} option update woocommerce_terms_page_id 3
 echo "==> Enabling the gateway in test mode..."
 # No credentials in the dump: test mode signs as Paytrail's published test merchant.
 ${WP} option update woocommerce_paytrail_settings \
-    '{"enabled":"yes","enable_test_mode":"yes","provider_selection":"yes","debug":"yes","fallback_country":"FI"}' \
-    --format=json
+'{"enabled":"yes","enable_test_mode":"yes","provider_selection":"yes","debug":"yes","fallback_country":"FI"}' \
+--format=json
 
 echo "==> Truncating Action Scheduler tables (must be empty in the dump, see header)..."
 php -r "

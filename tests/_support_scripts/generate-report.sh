@@ -16,14 +16,14 @@ if [[ "${1:-}" == "--share" ]]; then
 fi
 
 RESULTS=()
-for suite in integration harness; do
+for suite in integration harness endtoend; do
     if [[ -d "tests/_output/allure-results/$suite" ]]; then
         RESULTS+=("tests/_output/allure-results/$suite")
     fi
 done
 
 if [[ ${#RESULTS[@]} -eq 0 ]]; then
-    echo "No Allure results found. Run 'composer test:integration' or 'composer test:harness' first." >&2
+    echo "No Allure results found. Run 'composer test:integration', 'composer test:harness' or 'composer test:e2e' first." >&2
     exit 1
 fi
 

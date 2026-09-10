@@ -141,7 +141,7 @@ if (is_file($wpConfigPath)) {
 $state = $installation->getState();
 if (! ($state instanceof Single || $state instanceof Multisite)) {
     echo "Installing WordPress (DB tables + admin user)...\n";
-    $port = (int) (getenv('BUILTIN_SERVER_PORT') ?: 5513);
+    $port = (int) (getenv('BUILTIN_SERVER_PORT') ?: 8080);
     try {
         $installation->install(
             "http://localhost:{$port}",
