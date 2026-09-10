@@ -82,9 +82,20 @@ if ($paytrail_is_web_request && ($paytrail_asked_for('HTTP_HOST') || $paytrail_a
  * plugin builds every redirect and callback URL from `home_url()`, so that is what is
  * swapped, and only for the request that creates a payment.
  */
+$paytrail_is_store_api_checkout = static function (): bool {
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+        return false;
+    }
+
+    // Covers both /wp-json/... and the ?rest_route=... form, which REQUEST_URI carries.
+    return strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/wc/store/v1/checkout') !== false;
+};
+
 $paytrail_is_purchase_request = $paytrail_is_web_request && (
     'checkout' === ($_GET['wc-ajax'] ?? '')
     || isset($_POST['woocommerce_pay'])
+    // The block checkout places the order through the Store API rather than wc-ajax.
+    || $paytrail_is_store_api_checkout()
 );
 
 if ($paytrail_is_purchase_request) {
