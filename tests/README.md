@@ -154,9 +154,6 @@ The EndToEnd suite has its own set, composed into `Tests\Support\EndToEndTester`
 | `CanDriveE2EBlockCheckout` | The same purchase through the checkout block, whose fields and provider list the shortcode steps cannot drive. |
 | `CanDriveE2EOrderManagement` | The WooCommerce order screen, and reading back what it wrote. |
 
-`TestProducts` and `TestTaxRates` are shared verbatim with the Klarna Payments and
-Kustom Checkout suites, so a total that moves here moves there too.
-
 ## Layout
 
 ```
