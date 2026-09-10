@@ -92,6 +92,10 @@ What the suite deliberately leaves out: refunds. The published test merchant can
 receive refunds of e-payments, so the API refuses every one. The refund paths are
 covered against the API fake in the Integration suite instead.
 
+The store installs with the shortcode checkout, so that is what most rows buy through.
+`BlockCheckoutCest` puts WooCommerce's own checkout block on the checkout page for the
+one test that needs it, which WPDb undoes with the dump reload before the next.
+
 ## Reports
 
 Each run writes Allure results to `tests/_output/allure-results/<suite>/`. Integration
@@ -146,7 +150,8 @@ The EndToEnd suite has its own set, composed into `Tests\Support\EndToEndTester`
 |---|---|
 | `CanManageE2EProducts` | Products and variations from `Data\TestProducts`, written straight to the database. |
 | `CanManageE2ETaxRates` | Tax classes and rates from `Data\TestTaxRates`. |
-| `CanDriveE2ECheckout` | The cart, the checkout form, the provider list, and the trip out to Paytrail and back. |
+| `CanDriveE2ECheckout` | The cart, the shortcode checkout form, the provider list, and the trip out to Paytrail and back. |
+| `CanDriveE2EBlockCheckout` | The same purchase through the checkout block, whose fields and provider list the shortcode steps cannot drive. |
 | `CanDriveE2EOrderManagement` | The WooCommerce order screen, and reading back what it wrote. |
 
 `TestProducts` and `TestTaxRates` are shared verbatim with the Klarna Payments and
