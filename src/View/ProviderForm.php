@@ -97,10 +97,10 @@ array_walk(
 				}
 			);
 		}
-		if ( $show_card_saving && 'creditcard' === $group['id'] ) {
+		if ( 'creditcard' === $group['id'] ) {
 			if ( is_user_logged_in() ) {
 				\Paytrail\WooCommercePaymentGateway\Gateway::render_saved_payment_methods();
-			} elseif ( 1 === intval( get_option( 'users_can_register' ) ) ) {
+			} elseif ( $show_card_saving && 1 === intval( get_option( 'users_can_register' ) ) ) {
 				$mypage_link = get_permalink( wc_get_page_id( 'myaccount' ) );
 				echo '<p class="add-card-login-description" role="link">';
 				printf(
