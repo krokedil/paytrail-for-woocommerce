@@ -57,7 +57,7 @@ jobs:
               run: |
                   {
                     echo "WORDPRESS_URL=${WORDPRESS_URL}"
-                    echo "PAYTRAIL_WORDPRESS_URL=${WORDPRESS_URL}"
+                    echo "PAYTRAIL_WORDPRESS_URL=${PAYTRAIL_WORDPRESS_URL}"
                     echo "WORDPRESS_DOMAIN=${WORDPRESS_DOMAIN}"
                     echo "WORDPRESS_DB_URL=${WORDPRESS_DB_URL}"
                     echo "WORDPRESS_TABLE_PREFIX=${WORDPRESS_TABLE_PREFIX}"
