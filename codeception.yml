@@ -38,8 +38,14 @@ extensions:
       delete_successful: true
       animate_slides: true
     lucatume\WPBrowser\Extension\ChromeDriverController:
+      # Only the browser suite needs a driver. Without this the extension starts for
+      # every suite, which makes Integration and Harness depend on Chrome for nothing.
+      suites: [EndToEnd]
       port: "%CHROMEDRIVER_PORT%"
     lucatume\WPBrowser\Extension\BuiltInServerController:
+      # Integration and Harness load WordPress in process and open no sockets, so only
+      # the browser suite needs a server in front of the install.
+      suites: [EndToEnd]
       # One worker serves one connection at a time, and a browser opens several per
       # host. At 5 workers the server stops answering a few tests in.
       workers: 24
