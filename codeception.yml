@@ -26,8 +26,6 @@ extensions:
   enabled:
     - Codeception\Extension\RunFailed
     - Codeception\Extension\Recorder
-    - lucatume\WPBrowser\Extension\ChromeDriverController
-    - lucatume\WPBrowser\Extension\BuiltInServerController
     - lucatume\WPBrowser\Extension\Symlinker
   config:
     Codeception\Extension\Recorder:
@@ -37,31 +35,6 @@ extensions:
       module: lucatume\WPBrowser\Module\WPWebDriver
       delete_successful: true
       animate_slides: true
-    lucatume\WPBrowser\Extension\ChromeDriverController:
-      # Only the browser suite needs a driver. Without this the extension starts for
-      # every suite, which makes Integration and Harness depend on Chrome for nothing.
-      suites: [EndToEnd]
-      port: "%CHROMEDRIVER_PORT%"
-    lucatume\WPBrowser\Extension\BuiltInServerController:
-      # Integration and Harness load WordPress in process and open no sockets, so only
-      # the browser suite needs a server in front of the install.
-      suites: [EndToEnd]
-      # One worker serves one connection at a time, and a browser opens several per
-      # host. At 5 workers the server stops answering a few tests in.
-      workers: 24
-      port: "%BUILTIN_SERVER_PORT%"
-      docroot: "%WORDPRESS_ROOT_DIR%"
-      env:
-        DATABASE_TYPE: sqlite
-        DB_ENGINE: sqlite
-        DB_DIR: "%codecept_root_dir%/tests/_wordpress/data"
-        DB_FILE: db.sqlite
-        WORDPRESS_URL: "%WORDPRESS_URL%"
-        # What Paytrail is told to call back on, used only by
-        # tests/_mu-plugins/02-paytrail-public-url.php.
-        PAYTRAIL_WORDPRESS_URL: "%PAYTRAIL_WORDPRESS_URL%"
-        BUILTIN_SERVER_PORT: "%BUILTIN_SERVER_PORT%"
-        WORDPRESS_ADMIN_PASSWORD: "%WORDPRESS_ADMIN_PASSWORD%"
     lucatume\WPBrowser\Extension\Symlinker:
       wpRootFolder: "%WORDPRESS_ROOT_DIR%"
       plugins:

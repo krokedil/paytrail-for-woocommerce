@@ -58,6 +58,8 @@ modules:
       domain: "%WORDPRESS_DOMAIN%"
 extensions:
   enabled:
+    - lucatume\WPBrowser\Extension\ChromeDriverController
+    - lucatume\WPBrowser\Extension\BuiltInServerController
     - Tests\Support\Extension\NgrokController
     - Qameta\Allure\Codeception\AllureCodeception
     - Tests\Support\Extension\ExampleNameReporter
@@ -66,6 +68,25 @@ extensions:
   config:
     Qameta\Allure\Codeception\AllureCodeception:
       outputDirectory: allure-results/endtoend
+    lucatume\WPBrowser\Extension\ChromeDriverController:
+      port: "%CHROMEDRIVER_PORT%"
+    lucatume\WPBrowser\Extension\BuiltInServerController:
+      # One worker serves one connection at a time, and a browser opens several per
+      # host. At 5 workers the server stops answering a few tests in.
+      workers: 24
+      port: "%BUILTIN_SERVER_PORT%"
+      docroot: "%WORDPRESS_ROOT_DIR%"
+      env:
+        DATABASE_TYPE: sqlite
+        DB_ENGINE: sqlite
+        DB_DIR: "%codecept_root_dir%/tests/_wordpress/data"
+        DB_FILE: db.sqlite
+        WORDPRESS_URL: "%WORDPRESS_URL%"
+        # What Paytrail is told to call back on, used only by
+        # tests/_mu-plugins/02-paytrail-public-url.php.
+        PAYTRAIL_WORDPRESS_URL: "%PAYTRAIL_WORDPRESS_URL%"
+        BUILTIN_SERVER_PORT: "%BUILTIN_SERVER_PORT%"
+        WORDPRESS_ADMIN_PASSWORD: "%WORDPRESS_ADMIN_PASSWORD%"
     Tests\Support\Extension\WordPressLogReporter:
       wpRootFolder: "%WORDPRESS_ROOT_DIR%"
     Tests\Support\Extension\NgrokController:
