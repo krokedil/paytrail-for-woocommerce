@@ -112,9 +112,9 @@
         "dev:start": "vendor/bin/codecept dev:start",
         "dev:stop": "vendor/bin/codecept dev:stop",
         "test:e2e": [
-            "@test:setup",
             "@test:chromedriver",
-            "@dev:start",
+            "@test:setup",
+            "@dev:stop",
             "vendor/bin/codecept run EndToEnd --xml report-endtoend.xml",
             "@dev:stop"
         ],
