@@ -21,6 +21,9 @@ trait CanDriveE2EBlockCheckout {
 	/** The block checkout's own place order button. */
 	private const BLOCK_PLACE_ORDER = '.wc-block-components-checkout-place-order-button';
 
+	/** The modifier the button carries while the checkout is busy. */
+	private const BLOCK_PLACE_ORDER_LOADING = 'wc-block-components-checkout-place-order-button--loading';
+
 	/** How long the block checkout may take to settle a Store API round trip, in seconds. */
 	private const BLOCK_TIMEOUT = 30;
 
@@ -65,12 +68,17 @@ trait CanDriveE2EBlockCheckout {
 	public function fillBlockBillingAddressForm( array $overrides = [] ): void {
 		$address = array_replace( self::BILLING_ADDRESS, $overrides );
 
+		// Left out of the write on purpose: WooCommerce clears the postcode whenever the
+		// country field fires a change, so writing it back would empty a field we filled.
+		$written = $address;
+		unset( $written['country'] );
+
 		$this->waitForBlockCheckoutReady();
 
 		// Through the native setter, which is the one React's own onChange listens to.
 		// A plain el.value write is reverted the next time the field renders.
 		$this->executeJS(
-			'const values = ' . json_encode( $address ) . ';'
+			'const values = ' . json_encode( $written ) . ';'
 			. ' const write = (el, value) => {'
 			. '   const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype'
 			. '     : el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype'
@@ -151,17 +159,17 @@ trait CanDriveE2EBlockCheckout {
 	}
 
 	/**
-	 * Waits for the block checkout to settle: its own cart store reports no calculation
-	 * in flight and the place order button is ready to be pressed.
+	 * Waits for the block checkout to settle. The place order button is the signal:
+	 * WooCommerce disables it for the whole of a Store API round trip, so it says what
+	 * the checkout store would without reaching into wp.data for it.
 	 */
 	public function waitForBlockCheckoutReady( int $timeout = self::BLOCK_TIMEOUT ): void {
 		$this->waitForJS(
-			"return typeof wp !== 'undefined'"
-			. ' && !!wp.data'
-			. " && !!wp.data.select('wc/store/cart')"
-			. " && !wp.data.select('wc/store/cart').isCalculating()"
-			. ' && !!document.querySelector("' . self::BLOCK_PLACE_ORDER . '")'
-			. ' && !document.querySelector("' . self::BLOCK_PLACE_ORDER . '").disabled;',
+			'const button = document.querySelector("' . self::BLOCK_PLACE_ORDER . '");'
+			. ' return !!button'
+			. ' && !button.disabled'
+			. ' && !button.classList.contains("' . self::BLOCK_PLACE_ORDER_LOADING . '")'
+			. ' && !document.querySelector(".wc-block-checkout .wc-block-components-spinner");',
 			$timeout
 		);
 	}
