@@ -135,9 +135,9 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Settlement prefix
 	 *
-	 * @var int
+	 * @var string
 	 */
-	private $settlement_prefix = 10;
+	private $settlement_prefix = '10';
 
 	const TAX_RATE_PRECISION   = 1;
 	const SUPPORTED_CURRENCIES = array( 'EUR' );
@@ -709,7 +709,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * Save card token
 	 *
 	 * @param GetTokenResponse $card_token The token response returned by the API.
-	 * @return bool
+	 * @return int The saved token ID, or 0 when saving failed.
 	 */
 	private function save_card_token( GetTokenResponse $card_token ) {
 		$this->log( 'Paytrail: save_card_token', 'debug' );
@@ -747,7 +747,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * Grab and display users saved card payment methods.
 	 */
 	public function saved_payment_methods() {
-		$html = '<ul class="woocommerce-SavedPaymentMethods wc-saved-payment-methods" data-count="' . esc_attr( count( $this->get_tokens() ) ) . '">';
+		$html = '<ul class="woocommerce-SavedPaymentMethods wc-saved-payment-methods" data-count="' . esc_attr( (string) count( $this->get_tokens() ) ) . '">';
 		foreach ( $this->get_tokens() as $token ) {
 			$html .= $this->get_saved_payment_method_option_html( $token );
 		}
@@ -795,7 +795,7 @@ final class Gateway extends \WC_Payment_Gateway {
 				</label>
 			</li>',
 			esc_attr( $this->id ),
-			esc_attr( $token->get_id() ),
+			esc_attr( (string) $token->get_id() ),
 			$this->get_display_name( $token ),
 			esc_html( $token->get_display_name() ),
 			$this->get_card_image( $token ),
@@ -956,7 +956,7 @@ final class Gateway extends \WC_Payment_Gateway {
 
 			if ( empty( $orders ) ) {
 				$this->log( 'Paytrail: handle_payment_response, orders collection empty for reference: ' . $reference, 'debug' );
-				return;
+				return null;
 			}
 
 			$order = reset( $orders );
@@ -1007,7 +1007,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			case 'ok':
 				$this->log( 'Paytrail: handle_payment_response, case = ok for order ' . $order->get_id(), 'debug' );
 				if ( ! $this->validate_order_payment_processing( $order ) ) {
-					return;
+					return null;
 				}
 				$this->log( 'Paytrail: handle_payment_response payment_complete, order ' . $order->get_id() . ' needs processing ' . $order->needs_processing(), 'debug' );
 
@@ -1115,6 +1115,8 @@ final class Gateway extends \WC_Payment_Gateway {
 				$order->add_order_note( $failed_order_note );
 				break;
 		}
+
+		return null;
 	}
 
 	/**
@@ -1338,10 +1340,10 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Process the payment with Paytrail SDK and return the result.
 	 *
-	 * @param WC_Order $order            The order being paid.
-	 * @param string   $token_id         The stored card token to charge, if any.
-	 * @param string   $payment_provider The selected payment provider.
-	 * @param bool     $die_on_error     Whether to die on error or not. If false, the error is handled by WooCommerce.
+	 * @param WC_Order    $order            The order being paid.
+	 * @param string|null $token_id         The stored card token to charge, if any.
+	 * @param string|null $payment_provider The selected payment provider.
+	 * @param bool        $die_on_error     Whether to die on error or not. If false, the error is handled by WooCommerce.
 	 * @return array
 	 * @throws \Exception If the processing fails, this error is handled by WooCommerce.
 	 */
@@ -1778,6 +1780,8 @@ final class Gateway extends \WC_Payment_Gateway {
 				return $key;
 			}
 		}
+
+		return null;
 	}
 
 	/**
@@ -1851,9 +1855,9 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Process refunds.
 	 *
-	 * @param integer $order_id Order ID to refund from.
-	 * @param integer $amount   Optionally the refund amount if not the whole sum.
-	 * @param string  $reason   Optional reason for the refund.
+	 * @param integer    $order_id Order ID to refund from.
+	 * @param float|null $amount   Optionally the refund amount if not the whole sum.
+	 * @param string     $reason   Optional reason for the refund.
 	 * @return boolean|\WP_Error
 	 */
 	public function process_refund( $order_id, $amount = null, $reason = '' ) {
@@ -1995,7 +1999,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					$refund_object->update_meta_data( '_checkout_refund_unique_id', $refund_unique_id );
 					$refund_object->update_meta_data( '_checkout_refund_processing', true );
 
-					$refund_object->set_amount( 0 );
+					$refund_object->set_amount( '0' );
 					$refund_object->set_reason( $reason . ' Refund is still being processed. The status and the amount (' . $price . ') of the refund will update when the processing is completed.' );
 
 					$refund_object->save();
@@ -2031,7 +2035,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					$meta = $refund->get_meta( '_checkout_refund_processing' );
 					if ( $meta ) {
 						echo '<style>';
-						echo '[data-order_refund_id=' . esc_html( $refund->get_id() ) . '] span.amount {';
+						echo '[data-order_refund_id=' . esc_html( (string) $refund->get_id() ) . '] span.amount {';
 						echo 'font-style: italic;';
 						echo '}';
 						echo '</style>';
@@ -2082,7 +2086,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param \WC_Order $order The order to create the customer object from.
 	 *
-	 * @return Paytrail\SDK\Model\Customer
+	 * @return \Paytrail\SDK\Model\Customer
 	 */
 	protected function create_customer( \WC_Order $order ) {
 		$customer = new Customer();
@@ -2186,7 +2190,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		$address = new Address();
 
 		if ( ! $order ) {
-			return;
+			return null;
 		}
 
 		switch ( $type ) {
@@ -2229,7 +2233,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @param WC_Order_Item $order_item The order item object to create the item object from.
 	 * @param WC_Order      $order      The current order object.
 	 *
-	 * @return Item|null
+	 * @return Item
 	 */
 	protected function create_item( WC_Order_Item $order_item, WC_Order $order ) {
 		$item = new Item();

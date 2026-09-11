@@ -67,7 +67,7 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 	/**
 	 * Lazy initialize and retrieve the Paytrail gateway.
 	 *
-	 * @return WC_Payment_Gateway|null The Paytrail gateway or null if not found.
+	 * @return Gateway|null The Paytrail gateway or null if not found.
 	 */
 	private function get_gateway() {
 		if ( $this->gateway ) {
@@ -128,11 +128,11 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 	 *
 	 * @param PaymentContext $context The payment context.
 	 * @param PaymentResult  $result  The payment result.
-	 * @return PaymentResult
+	 * @return PaymentResult|null
 	 */
 	public function add_payment_request_order_meta( PaymentContext $context, PaymentResult &$result ) {
 		if ( $context->payment_method !== $this->name ) {
-			return;
+			return null;
 		}
 
 		$payment_data = $context->payment_data;
