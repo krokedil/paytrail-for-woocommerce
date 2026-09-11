@@ -112,6 +112,13 @@ final class Gateway extends \WC_Payment_Gateway {
 	public $method_info = array();
 
 	/**
+	 * Grouped payment providers fetched during this request, keyed by request arguments.
+	 *
+	 * @var array
+	 */
+	private $grouped_providers = array();
+
+	/**
 	 * WooCommerce logger instance
 	 *
 	 * @var \WC_Logger
@@ -1470,7 +1477,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					'paytrail-for-woocommerce'
 				),
 				$response->getTransactionId(),
-				! empty( $wanted_provider->getName() ) ? $wanted_provider->getName() : ucfirst( $payment_provider )
+				$wanted_provider && ! empty( $wanted_provider->getName() ) ? $wanted_provider->getName() : ucfirst( $payment_provider )
 			);
 			$this->log( 'Paytrail: create_normal_payment, use_provider_selection = true, redirect', 'debug' );
 			$order->add_order_note( $message );
@@ -2132,10 +2139,18 @@ final class Gateway extends \WC_Payment_Gateway {
 			$groups = array( 'creditcard' );
 		}
 
+		$amount    = isset( $payment_amount ) ? $payment_amount : $this->get_cart_total();
+		$language  = isset( $locale ) ? $locale : Helper::getLocale();
+		$cache_key = $amount . '|' . $language . '|' . implode( ',', $groups );
+
+		if ( isset( $this->grouped_providers[ $cache_key ] ) ) {
+			return $this->grouped_providers[ $cache_key ];
+		}
+
 		try {
 			$providers = $this->client->getGroupedPaymentProviders(
-				isset( $payment_amount ) ? $payment_amount : $this->get_cart_total(),
-				isset( $locale ) ? $locale : Helper::getLocale(),
+				$amount,
+				$language,
 				$groups
 			);
 
@@ -2144,6 +2159,8 @@ final class Gateway extends \WC_Payment_Gateway {
 		} catch ( \Exception $exception ) {
 			$providers = $this->get_payment_providers_error_handler( $exception );
 		}
+
+		$this->grouped_providers[ $cache_key ] = $providers;
 
 		return $providers;
 	}
