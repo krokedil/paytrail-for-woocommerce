@@ -281,7 +281,9 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 		}
 
 		if ( ! $this->should_load_payment_providers() ) {
-			$this->get_payment_method_style_handles();
+			if ( is_cart() || is_checkout() ) {
+				$this->get_payment_method_style_handles();
+			}
 
 			return array(
 				'title'        => $gateway->title,
