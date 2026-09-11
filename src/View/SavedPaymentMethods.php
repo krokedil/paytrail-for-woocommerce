@@ -12,8 +12,13 @@ $gateway = Plugin::instance()->gateway();
 $saved_methods = wc_get_customer_saved_methods_list( get_current_user_id() );
 $has_methods   = (bool) $saved_methods;
 
-if ( \Paytrail\WooCommercePaymentGateway\Helper::getIsChangeSubscriptionPaymentMethod() ) {
-	$add_card_form_url    = Router::get_url( Plugin::CARD_ENDPOINT, 'add' ) . '?change_payment_method=1';
+$change_payment_subscription = \Paytrail\WooCommercePaymentGateway\Subscriptions::get_change_payment_subscription();
+
+if ( $change_payment_subscription ) {
+	$add_card_form_url    = add_query_arg(
+		array( 'change_payment_method' => $change_payment_subscription->get_id() ),
+		Router::get_url( Plugin::CARD_ENDPOINT, 'add' )
+	);
 	$is_subscription_page = true;
 } else {
 	$add_card_form_url    = Router::get_url( Plugin::CARD_ENDPOINT, 'add' );
@@ -54,6 +59,19 @@ $delete_card_url = Router::get_url( Plugin::CARD_ENDPOINT, 'delete' );
 
 	jQuery('.paytrail-woocommerce-payment-fields input[type=radio]').click(function () {
 		jQuery('.paytrail-woocommerce-payment-fields input[type=radio]:checked').not(this).prop('checked', false);
+	});
+
+	jQuery(".paytrail-for-woocommerce-tokenized-payment-method-links.add-card-button").click(function () {
+		if (!<?php echo wp_json_encode( $is_subscription_page ); ?>) {
+			return;
+		}
+
+		let updateAll = jQuery('#update_all_subscriptions_payment_method');
+
+		if (updateAll.length && updateAll.is(':checked')) {
+			let href = jQuery(this).attr('href');
+			jQuery(this).attr('href', href + (href.indexOf('?') === -1 ? '?' : '&') + 'paytrail-update-all=1');
+		}
 	});
 
 	jQuery(".paytrail-for-woocommerce-tokenized-payment-method-links.delete-card-button").click(function (evt) {
