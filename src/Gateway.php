@@ -139,8 +139,30 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	private $settlement_prefix = 10;
 
+	/**
+	 * Whether the response currently being handled comes from a queued callback rather than from a live HTTP request.
+	 *
+	 * @var boolean
+	 */
+	protected $deferred_processing = false;
+
 	const TAX_RATE_PRECISION   = 1;
 	const SUPPORTED_CURRENCIES = array( 'EUR' );
+
+	/**
+	 * Action Scheduler hook used to process Paytrail callbacks outside of the callback request.
+	 */
+	const CALLBACK_ACTION_HOOK = 'paytrail_for_woocommerce_process_callback';
+
+	/**
+	 * Action Scheduler group for the queued callbacks.
+	 */
+	const CALLBACK_ACTION_GROUP = 'paytrail_for_woocommerce';
+
+	/**
+	 * Default number of seconds to wait before a queued callback is processed.
+	 */
+	const CALLBACK_ACTION_DELAY = 120;
 
 	/**
 	 * Object constructor
@@ -243,6 +265,9 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		// Check if we are in response phase.
 		add_action( 'template_redirect', array( $this, 'on_redirect_to_thankyou_page' ) );
+
+		// Process callbacks that were queued instead of being handled inside the callback request.
+		add_action( self::CALLBACK_ACTION_HOOK, array( $this, 'process_scheduled_callback' ) );
 	}
 
 	/**
@@ -853,7 +878,6 @@ final class Gateway extends \WC_Payment_Gateway {
 		$status           = filter_input( INPUT_GET, 'checkout-status' );
 		$refund_callback  = filter_input( INPUT_GET, 'refund_callback' );
 		$refund_unique_id = filter_input( INPUT_GET, 'refund_unique_id' );
-		$order_id         = filter_input( INPUT_GET, 'order_id' );
 		$reference        = filter_input( INPUT_GET, 'checkout-reference' );
 		$cancel_order     = filter_input( INPUT_GET, 'cancel_order' );
 		$pay_for_order    = filter_input( INPUT_GET, 'pay_for_order' );
@@ -901,47 +925,130 @@ final class Gateway extends \WC_Payment_Gateway {
 			return;
 		}
 
-		$sleep_time          = wp_rand( 0, 3 );
-		$sleep_time_callback = wp_rand( 3, 6 );
+		$params = $this->get_response_params();
 
 		if ( true === $this->callback_mode ) {
 			$this->log( 'Paytrail: Callback check_paytrail_response for order ' . $reference, 'debug' );
-			$this->log( 'Paytrail: Wait for ' . $sleep_time_callback . ' seconds until processing order ' . $reference, 'debug' );
-			sleep( $sleep_time_callback );
+
+			if ( $this->schedule_callback_processing( $params ) ) {
+				return;
+			}
 		} else {
 			$this->log( 'Paytrail: Redirect check_paytrail_response for reference ' . $reference, 'debug' );
-			$this->log( 'Paytrail: Wait for ' . $sleep_time . ' seconds until processing reference ' . $reference, 'debug' );
-			sleep( $sleep_time );
 		}
 
-		// Handle the response only if the status exists.
-		if ( $refund_callback ) {
-			$this->log( 'Paytrail: Start handle_refund_response for order_id ' . $order_id, 'debug' );
-			$this->handle_refund_response( $refund_callback, $refund_unique_id, $order_id );
+		$this->process_response( $params );
+	}
 
+	/**
+	 * Read the Paytrail response parameters from the current request.
+	 *
+	 * @return array
+	 */
+	protected function get_response_params() {
+		$params = filter_input_array( INPUT_GET );
+
+		return is_array( $params ) ? $params : array();
+	}
+
+	/**
+	 * Queue a Paytrail callback for processing after the browser redirect has had a head start.
+	 *
+	 * @param array $params The callback query parameters.
+	 * @return bool Whether the callback was queued. False means it has to be handled inline.
+	 */
+	protected function schedule_callback_processing( array $params ) {
+		if ( ! function_exists( 'as_schedule_single_action' ) ) {
+			$this->log( 'Paytrail: Action Scheduler is unavailable, processing the callback inline.', 'debug' );
+			return false;
+		}
+
+		$args = array( $params );
+
+		if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( self::CALLBACK_ACTION_HOOK, $args, self::CALLBACK_ACTION_GROUP ) ) {
+			$this->log( 'Paytrail: Callback is already queued, skipping.', 'debug' );
+			return true;
+		}
+
+		/**
+		 * Filter the number of seconds a Paytrail callback is held before it is processed.
+		 *
+		 * @since 2.9.0
+		 *
+		 * @param int   $delay  The delay in seconds.
+		 * @param array $params The callback query parameters.
+		 */
+		$delay = (int) apply_filters( 'woocommerce_paytrail_callback_processing_delay', self::CALLBACK_ACTION_DELAY, $params );
+
+		as_schedule_single_action( time() + max( 0, $delay ), self::CALLBACK_ACTION_HOOK, $args, self::CALLBACK_ACTION_GROUP );
+
+		$this->log( 'Paytrail: Callback queued to be processed in ' . max( 0, $delay ) . ' seconds.', 'debug' );
+
+		return true;
+	}
+
+	/**
+	 * Process a callback that was queued by schedule_callback_processing().
+	 *
+	 * @param array $params The callback query parameters.
+	 * @throws \Throwable If the response could not be processed. Action Scheduler records the
+	 *                    action as failed so the failure stays visible in the scheduled actions list.
+	 * @return void
+	 */
+	public function process_scheduled_callback( $params ) {
+		$this->deferred_processing = true;
+
+		try {
+			$this->process_response( (array) $params );
+		} catch ( \Throwable $exception ) {
+			$this->log( 'Paytrail: Deferred callback processing failed: ' . $exception->getMessage(), 'error' );
+
+			throw $exception;
+		} finally {
+			$this->deferred_processing = false;
+		}
+	}
+
+	/**
+	 * Route a Paytrail response to the payment or the refund handler.
+	 *
+	 * @param array $params The response query parameters.
+	 * @return void
+	 */
+	protected function process_response( array $params ) {
+		$refund_callback = $params['refund_callback'] ?? null;
+
+		if ( $refund_callback ) {
+			$order_id = $params['order_id'] ?? null;
+			$this->log( 'Paytrail: Start handle_refund_response for order_id ' . $order_id, 'debug' );
+			$this->handle_refund_response( $refund_callback, $params['refund_unique_id'] ?? null, $order_id, $params );
 		} else {
-			$this->log( 'Paytrail: Start handle_payment_response for reference ' . $reference, 'debug' );
-			$this->handle_payment_response( $status );
+			$this->log( 'Paytrail: Start handle_payment_response for reference ' . ( $params['checkout-reference'] ?? '' ), 'debug' );
+			$this->handle_payment_response( $params['checkout-status'] ?? null, $params );
 		}
 	}
 
 	/**
 	 * Handle payment response functionalities
 	 *
-	 * @param string $status The status of the response.
+	 * @param string     $status The status of the response.
+	 * @param array|null $params The response query parameters. Defaults to the current request.
 	 *
 	 * @return bool|null
 	 */
-	public function handle_payment_response( $status ) {
+	public function handle_payment_response( $status, $params = null ) {
+		$params = null === $params ? $this->get_response_params() : (array) $params;
+
 		// Check the HMAC.
 		try {
-			$this->client->validateHmac( filter_input_array( INPUT_GET ), '', filter_input( INPUT_GET, 'signature' ) );
+			$this->client->validateHmac( $params, '', $params['signature'] ?? '' );
 		} catch ( HmacException $exception ) {
-			$this->signature_error( $exception );
+			// Never wp_die() out of a queued action, it would take the queue runner with it.
+			$this->signature_error( $exception, ! $this->deferred_processing );
 		}
 
-		$reference      = filter_input( INPUT_GET, 'checkout-reference' );
-		$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
+		$reference      = $params['checkout-reference'] ?? null;
+		$transaction_id = $params['checkout-transaction-id'] ?? null;
 
 		try {
 			$orders = wc_get_orders(
@@ -1006,12 +1113,10 @@ final class Gateway extends \WC_Payment_Gateway {
 		switch ( $status ) {
 			case 'ok':
 				$this->log( 'Paytrail: handle_payment_response, case = ok for order ' . $order->get_id(), 'debug' );
-				if ( ! $this->validate_order_payment_processing( $order ) ) {
+				if ( ! $this->validate_order_payment_processing( $order, $transaction_id ) ) {
 					return;
 				}
 				$this->log( 'Paytrail: handle_payment_response payment_complete, order ' . $order->get_id() . ' needs processing ' . $order->needs_processing(), 'debug' );
-
-				$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 
 				// If this transaction has already been processed, don't process again.
 				if ( $order->get_transaction_id() === $transaction_id && ! empty( $order->get_date_paid() ) ) {
@@ -1025,8 +1130,8 @@ final class Gateway extends \WC_Payment_Gateway {
 				if ( ! $this->use_provider_selection() ) {
 					$this->log( 'Paytrail: handle_payment_response, use_provider_selection = false for order ' . $order->get_id(), 'debug' );
 					// Get the chosen payment provider and save it to the order.
-					$payment_provider = filter_input( INPUT_GET, 'checkout-provider' );
-					$payment_amount   = filter_input( INPUT_GET, 'checkout-amount' );
+					$payment_provider = $params['checkout-provider'] ?? null;
+					$payment_amount   = $params['checkout-amount'] ?? null;
 
 					$order->update_meta_data( '_checkout_payment_provider', $payment_provider );
 					$order->save();
@@ -1044,7 +1149,9 @@ final class Gateway extends \WC_Payment_Gateway {
 						}
 					}
 
-					WC()->session->set( 'payment_provider', $wanted_provider );
+					if ( WC()->session ) {
+						WC()->session->set( 'payment_provider', $wanted_provider );
+					}
 
 					$message = sprintf(
 						// translators: First parameter is transaction ID, the other is the name of the payment provider.
@@ -1072,15 +1179,16 @@ final class Gateway extends \WC_Payment_Gateway {
 				// Mark payment completed and store the transaction ID.
 				$order->payment_complete( $transaction_id );
 
-				// Clear the cart.
-				WC()->cart->empty_cart();
+				// Clear the cart. Not available when the response is processed from the queue.
+				if ( WC()->cart ) {
+					WC()->cart->empty_cart();
+				}
 
 				// Delete transient.
 				\delete_transient( 'checkout_transaction_id_processing_' . $transaction_id );
 
 				break;
 			case 'pending':
-				$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
 				$this->log( 'Paytrail: handle_payment_response, case = pending', 'debug' );
 				if ( ! $this->validate_order_payment_process_status( $order ) ) {
 					break;
@@ -1120,13 +1228,11 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Validate payment processing
 	 *
-	 * @param WC_Order $order The order to validate.
-	 * @param bool     $retry Whether to try again after 15 seconds if order is being processed.
+	 * @param WC_Order    $order          The order to validate.
+	 * @param string|null $transaction_id The Paytrail transaction ID from the response.
 	 * @return bool
 	 */
-	protected function validate_order_payment_processing( WC_Order $order, $retry = true ) {
-		$transaction_id = filter_input( INPUT_GET, 'checkout-transaction-id' );
-
+	protected function validate_order_payment_processing( WC_Order $order, $transaction_id ) {
 		if ( ! $transaction_id ) {
 			$this->log( 'Paytrail: validate_order_payment_processing, transaction id empty for order: ' . $order->get_id(), 'debug' );
 			return false;
@@ -1140,18 +1246,14 @@ final class Gateway extends \WC_Payment_Gateway {
 			return false;
 		}
 
-		// If the transaction is currently being processed, wait for 15 seconds and check again.
+		if ( ! empty( $order->get_date_paid() ) ) {
+			$this->log( 'Paytrail: validate_order_payment_processing, order is already paid ' . $order->get_id(), 'debug' );
+			return false;
+		}
+
+		// Another request is already processing this transaction.
 		if ( 'yes' === \get_transient( 'checkout_transaction_id_processing_' . $transaction_id ) ) {
 			$this->log( 'Paytrail: validate_order_payment_processing, order is currently being processed ' . $order->get_id(), 'debug' );
-
-			if ( true === $retry ) {
-				$this->log( 'Paytrail: validate_order_payment_processing, waiting for 15 seconds ' . $order->get_id(), 'debug' );
-				sleep( 15 );
-
-				return $this->validate_order_payment_processing( $order, false );
-			}
-
-			$this->log( 'Paytrail: validate_order_payment_processing, not trying again ' . $order->get_id(), 'debug' );
 			return false;
 		}
 
@@ -1188,14 +1290,17 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Handle refund response functionalities
 	 *
-	 * @param string $refund_callback  Refund callback status.
-	 * @param string $refund_unique_id Unique ID for the refund.
-	 * @param string $order_id         Order ID.
+	 * @param string     $refund_callback  Refund callback status.
+	 * @param string     $refund_unique_id Unique ID for the refund.
+	 * @param string     $order_id         Order ID.
+	 * @param array|null $params           The response query parameters. Defaults to the current request.
 	 * @return void
 	 */
-	public function handle_refund_response( $refund_callback, $refund_unique_id, $order_id ) {
-		// Remove the callback indicators from the GET array.
-		$get = filter_input_array( INPUT_GET );
+	public function handle_refund_response( $refund_callback, $refund_unique_id, $order_id, $params = null ) {
+		$params = null === $params ? $this->get_response_params() : (array) $params;
+
+		// Remove the callback indicators from the parameters.
+		$get = $params;
 
 		unset( $get['refund_callback'] );
 		unset( $get['refund_unique_id'] );
@@ -1203,9 +1308,10 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		// Check the HMAC.
 		try {
-			$this->client->validateHmac( $get, '', filter_input( INPUT_GET, 'signature' ) );
+			$this->client->validateHmac( $get, '', $params['signature'] ?? '' );
 		} catch ( HmacException $exception ) {
-			$this->signature_error( $exception );
+			// Never wp_die() out of a queued action, it would take the queue runner with it.
+			$this->signature_error( $exception, ! $this->deferred_processing );
 		}
 
 		// Check if HPOS is enabled.
@@ -1233,10 +1339,16 @@ final class Gateway extends \WC_Payment_Gateway {
 		}
 
 		if ( empty( $refunds ) ) {
+			$this->log( 'Paytrail: handle_refund_response, refund not found for unique id ' . $refund_unique_id, 'error' );
+
+			if ( $this->deferred_processing ) {
+				return;
+			}
+
 			wp_die( esc_html__( 'Refund cannot be found.', 'paytrail-for-woocommerce' ), '', 404 );
-		} else {
-			$refund = $refunds[0];
 		}
+
+		$refund = $refunds[0];
 
 		switch ( $refund_callback ) {
 			case 'success':
