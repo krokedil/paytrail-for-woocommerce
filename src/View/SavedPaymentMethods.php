@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 $gateway = Plugin::instance()->gateway();
 
 $show_card_saving = $gateway->use_card_saving();
-$has_methods      = (bool) WC_Payment_Tokens::get_customer_tokens( get_current_user_id(), Plugin::GATEWAY_ID );
+$has_methods      = (bool) $gateway->get_tokens();
 
 // Nothing to show: card saving is disabled and there are no cards saved earlier.
 if ( ! $show_card_saving && ! $has_methods ) {
