@@ -418,6 +418,14 @@ final class Gateway extends \WC_Payment_Gateway {
 				'default'     => 'yes',
 				'description' => __( 'Choose whether you want the payment provider selection to happen in the checkout page or in a separate page.', 'paytrail-for-woocommerce' ),
 			),
+			// Whether customers can save their card details for future purchases.
+			'card_saving'                 => array(
+				'title'       => __( 'Card saving', 'paytrail-for-woocommerce' ),
+				'type'        => 'checkbox',
+				'label'       => __( 'Enable card saving in the checkout page', 'paytrail-for-woocommerce' ),
+				'default'     => 'yes',
+				'description' => __( 'Choose whether customers can save their card details for future purchases. Disable this if card tokenization is not included in your Paytrail agreement. Card saving is always shown when the purchase involves a subscription (WooCommerce Subscriptions), because recurring payments can only be charged from a saved card.', 'paytrail-for-woocommerce' ),
+			),
 			// Alternative text + description to show on the Checkout page.
 			'custom_provider_name'        => array(
 				'title'       => __( 'Payment provider title', 'paytrail-for-woocommerce' ),
@@ -1183,6 +1191,19 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	protected function use_provider_selection() {
 		return 'yes' === $this->get_option( 'provider_selection', 'yes' );
+	}
+
+	/**
+	 * Whether the card saving options should be displayed.
+	 *
+	 * @return boolean
+	 */
+	public function use_card_saving() {
+		if ( Helper::getIsSubscriptionsEnabled() || Helper::getIsChangeSubscriptionPaymentMethod() ) {
+			return true;
+		}
+
+		return 'yes' === $this->get_option( 'card_saving', 'yes' );
 	}
 
 	/**
