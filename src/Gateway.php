@@ -991,6 +991,8 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * Process a callback that was queued by schedule_callback_processing().
 	 *
 	 * @param array $params The callback query parameters.
+	 * @throws \Throwable If the response could not be processed. Action Scheduler records the
+	 *                    action as failed so the failure stays visible in the scheduled actions list.
 	 * @return void
 	 */
 	public function process_scheduled_callback( $params ) {
@@ -998,6 +1000,10 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		try {
 			$this->process_response( (array) $params );
+		} catch ( \Throwable $exception ) {
+			$this->log( 'Paytrail: Deferred callback processing failed: ' . $exception->getMessage(), 'error' );
+
+			throw $exception;
 		} finally {
 			$this->deferred_processing = false;
 		}
