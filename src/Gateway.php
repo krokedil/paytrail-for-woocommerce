@@ -1387,6 +1387,10 @@ final class Gateway extends \WC_Payment_Gateway {
 				break;
 		}
 
+		if ( $this->deferred_processing ) {
+			return;
+		}
+
 		die( 'ok' );
 	}
 
