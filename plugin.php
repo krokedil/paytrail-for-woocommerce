@@ -122,7 +122,7 @@ final class Plugin {
 	/**
 	 * Gateway instance
 	 *
-	 * @var Gateway
+	 * @var Gateway|null
 	 */
 	protected $gateway;
 
