@@ -43,15 +43,6 @@ class Helper {
 	}
 
 	/**
-	 * Get the change_payment_method query arg, set when a subscription's payment method is being changed.
-	 *
-	 * @return string|null The query arg value, or null when it is not present.
-	 */
-	public static function getIsChangeSubscriptionPaymentMethod() {
-		return filter_input( INPUT_GET, 'change_payment_method' );
-	}
-
-	/**
 	 * Currency specific formattings
 	 *
 	 * @param int|double $sum The sum to format.

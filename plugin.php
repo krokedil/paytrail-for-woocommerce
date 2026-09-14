@@ -127,6 +127,13 @@ final class Plugin {
 	protected $gateway;
 
 	/**
+	 * Subscriptions integration instance, when WooCommerce Subscriptions is active.
+	 *
+	 * @var Subscriptions|null
+	 */
+	protected $subscriptions = null;
+
+	/**
 	 * Constructor function
 	 */
 	protected function __construct() {
@@ -170,6 +177,8 @@ final class Plugin {
 		// Add OP Lasku calculator to the product and cart page.
 		add_action( 'woocommerce_init', array( $this, 'op_lasku_init' ) );
 
+		// Initialize the Subscriptions integration before the gateway and order management.
+		add_action( 'init', array( $this, 'initialize_subscriptions' ), 5 );
 		add_action( 'init', array( $this, 'initialize_gateway' ) );
 		add_action( 'init', array( $this, 'initialize_order_management' ) );
 		add_filter( 'woocommerce_payment_gateways', array( $this, 'register_gateway' ) );
@@ -187,6 +196,26 @@ final class Plugin {
 	 */
 	public function initialize_order_management() {
 		new OrderManagement();
+	}
+
+	/**
+	 * Initialize the WooCommerce Subscriptions integration, if Subscriptions is active.
+	 */
+	public function initialize_subscriptions() {
+		if ( ! Subscriptions::is_available() ) {
+			return;
+		}
+
+		$this->subscriptions = new Subscriptions();
+	}
+
+	/**
+	 * Get the Subscriptions integration instance.
+	 *
+	 * @return Subscriptions|null The instance, or null when Subscriptions is not active.
+	 */
+	public function subscriptions() {
+		return $this->subscriptions;
 	}
 
 	/**

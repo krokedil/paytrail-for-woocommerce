@@ -6,6 +6,7 @@
 namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
 use Paytrail\WooCommercePaymentGateway\Plugin;
+use Paytrail\WooCommercePaymentGateway\Subscriptions;
 use WC_Payment_Tokens;
 use WP_Error;
 use WP_HTTP_Response;
@@ -23,8 +24,24 @@ class Card extends AbstractController {
 	protected function add() {
 		$gateway = Plugin::instance()->gateway();
 
+		$context         = Plugin::ADD_CARD_CONTEXT_CHECKOUT;
+		$subscription_id = 0;
+
+		if ( Subscriptions::is_change_payment_method_request() ) {
+			$subscription = Subscriptions::get_change_payment_subscription();
+
+			if ( ! $subscription ) {
+				wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
+				wp_safe_redirect( wc_get_account_endpoint_url( 'subscriptions' ) );
+				exit;
+			}
+
+			$context         = Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD;
+			$subscription_id = $subscription->get_id();
+		}
+
 		try {
-			$gateway->add_card_form();
+			$gateway->add_card_form( $context, $subscription_id );
 		} catch ( \Exception $e ) {
 			return;
 		}
