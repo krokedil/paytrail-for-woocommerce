@@ -230,6 +230,25 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 	}
 
 	/**
+	 * Whether the payment provider list should be fetched for the current request.
+	 *
+	 * @return bool
+	 */
+	private function should_load_payment_providers() {
+		$should_load = is_checkout()
+			&& ! is_wc_endpoint_url( 'order-pay' )
+			&& ! is_wc_endpoint_url( 'order-received' );
+
+		/**
+		 * Filters whether the payment providers are fetched for the block checkout.
+		 *
+		 * @since 2.8.0
+		 * @param bool $should_load Whether the provider list should be fetched.
+		 */
+		return (bool) apply_filters( 'paytrail_blocks_load_payment_providers', $should_load );
+	}
+
+	/**
 	 * Retrieve payment method data for the block-based checkout.
 	 *
 	 * @param PaymentContext|null $context The payment context provided during checkout.
@@ -259,6 +278,21 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 					'terms'        => '',
 					'no_providers' => true,
 				);
+		}
+
+		if ( ! $this->should_load_payment_providers() ) {
+			if ( is_cart() || is_checkout() ) {
+				$this->get_payment_method_style_handles();
+			}
+
+			return array(
+				'title'        => $gateway->title,
+				'description'  => $gateway->description,
+				'supports'     => array_filter( $gateway->supports, array( $gateway, 'supports' ) ),
+				'groups'       => array(),
+				'terms'        => '',
+				'no_providers' => true,
+			);
 		}
 
 		$grouped_providers = $gateway->get_grouped_payment_providers();
