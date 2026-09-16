@@ -50,11 +50,6 @@ parameters:
       count: 2
       path: src/Gateway.php
 
-    - message: '#^Parameter \#1 \$payment_amount of method Paytrail\\WooCommercePaymentGateway\\Gateway\:\:get_payment_providers\(\) expects int, string\|false\|null given\.$#'
-      identifier: argument.type
-      count: 1
-      path: src/Gateway.php
-
     - message: '#^Parameter \#1 \$prefix of function uniqid expects string, true given\.$#'
       identifier: argument.type
       count: 2
