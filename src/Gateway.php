@@ -762,9 +762,15 @@ final class Gateway extends \WC_Payment_Gateway {
 		$token->set_token( $card_token->getToken() );
 		$token->set_user_id( get_current_user_id() );
 		$token->set_gateway_id( Plugin::GATEWAY_ID );
-		\WC_Payment_Tokens::set_users_default( get_current_user_id(), $token->get_id() );
 
-		return $token->save();
+		$token_id = $token->save();
+
+		// The token only has an ID once it is saved, so the default is set afterwards.
+		if ( $token_id ) {
+			\WC_Payment_Tokens::set_users_default( get_current_user_id(), $token_id );
+		}
+
+		return $token_id;
 	}
 
 	/**
@@ -798,11 +804,12 @@ final class Gateway extends \WC_Payment_Gateway {
 			'li'    => array( 'class' => array() ),
 			'label' => array( 'for' => array() ),
 			'input' => array(
-				'id'    => array(),
-				'type'  => array(),
-				'name'  => array(),
-				'value' => array(),
-				'class' => array(),
+				'id'      => array(),
+				'type'    => array(),
+				'name'    => array(),
+				'value'   => array(),
+				'class'   => array(),
+				'checked' => array(),
 			),
 			'div'   => array( 'class' => array() ),
 			'ul'    => array( 'class' => array() ),
@@ -1318,6 +1325,15 @@ final class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
+	 * Whether the purchase must be paid with a stored card.
+	 *
+	 * @return boolean
+	 */
+	protected function requires_card_for_subscription() {
+		return Helper::getIsSubscriptionsEnabled() && ! Helper::getIsChangeSubscriptionPaymentMethod();
+	}
+
+	/**
 	 * Handle refund response functionalities
 	 *
 	 * @param string     $refund_callback  Refund callback status.
@@ -1430,7 +1446,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @return void
 	 */
 	public function payment_fields() {
-		if ( is_checkout() && $this->use_provider_selection() ) {
+		if ( is_checkout() && ( $this->use_provider_selection() || $this->requires_card_for_subscription() ) ) {
 			$this->provider_form();
 		} elseif ( is_checkout() ) {
 			$this->payment_description();
@@ -1448,6 +1464,14 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->log( 'Paytrail: process_payment', 'debug' );
 		$order    = wc_get_order( $order_id );
 		$token_id = filter_input( INPUT_POST, 'wc-paytrail-payment-token' );
+
+		if ( empty( $token_id ) && $this->requires_card_for_subscription() ) {
+			$message = __( 'Please choose one of your saved cards, or add a new one, to pay for a subscription.', 'paytrail-for-woocommerce' );
+
+			$this->log( 'Paytrail: process_payment, subscription payment without a card token', 'error' );
+
+			throw new \Exception( esc_html( $message ) );
+		}
 
 		// Define if the process should die if an error occurs.
 		$die_on_error = filter_input( INPUT_POST, 'woocommerce_pay' ) ? true : false;
@@ -1510,7 +1534,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			$order->add_payment_token( $token );
 
 			if ( $this->helper::getIsSubscriptionsEnabled() ) {
-				$subscriptions = wcs_get_subscriptions_for_order( $order->ID );
+				$subscriptions = wcs_get_subscriptions_for_order( $order->get_id() );
 				$this->log( 'Paytrail: add_payment_token to subscriptions', 'debug' );
 				foreach ( $subscriptions as $subscription ) {
 					$subscription->add_payment_token( $token );
