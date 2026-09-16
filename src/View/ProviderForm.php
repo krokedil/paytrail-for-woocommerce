@@ -1,6 +1,10 @@
 <?php
 /**
  * Provider form view
+ *
+ * Rendered from Gateway::provider_form().
+ *
+ * @var array $data The view data, holding the 'terms' and 'groups' keys.
  */
 
 // Ensure that the file is being run within the WordPress context.

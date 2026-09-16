@@ -56,7 +56,11 @@
         "composer/installers": "^2.0",
         "wpackagist-plugin/woocommerce": "^10.0",
         "wpackagist-plugin/sqlite-database-integration": "^2.2",
-        "wpackagist-theme/storefront": "^4.6"
+        "wpackagist-theme/storefront": "^4.6",
+        "php-stubs/woocommerce-stubs": "^10.8.0",
+        "php-stubs/woocommerce-subscriptions-stubs": "*",
+        "symplify/phpstan-rules": "^14.10.0",
+        "szepeviktor/phpstan-wordpress": "^2.0.3"
     },
     "repositories": [
         {
@@ -118,7 +122,9 @@
             "vendor/bin/codecept run EndToEnd --xml report-endtoend.xml",
             "@dev:stop"
         ],
-        "test:regenerate-dump": "bash tests/_support_scripts/regenerate-dump.sh"
+        "test:regenerate-dump": "bash tests/_support_scripts/regenerate-dump.sh",
+        "phpstan": "./vendor/bin/phpstan analyse --memory-limit=2G",
+        "phpstan:baseline": "./vendor/bin/phpstan analyse --memory-limit=2G --generate-baseline"
     },
     "scripts-descriptions": {
         "test:bootstrap": "Set up the local test WP install: scaffold core, configure it against SQLite, install WP, place the SQLite drop-in and copy tests/_mu-plugins/. Idempotent, and a no-op without the dev dependencies.",
@@ -131,6 +137,8 @@
         "test:report:reset": "Delete all accumulated Allure results and rendered reports.",
         "test:chromedriver": "Download a Chromedriver build matching the local Chrome. Run once after a Chrome update if E2E tests start failing with a \"session not created\" driver mismatch.",
         "test:e2e": "Run the EndToEnd suite. Needs NGROK_DOMAIN, NGROK_AUTHTOKEN and PAYTRAIL_WORDPRESS_URL in tests/.env, plus a generated tests/Support/Data/dump.sql.",
-        "test:regenerate-dump": "Rebuild tests/Support/Data/dump.sql from a clean WP + WooCommerce + plugin install. Run after upstream changes that affect the baseline schema or options."
+        "test:regenerate-dump": "Rebuild tests/Support/Data/dump.sql from a clean WP + WooCommerce + plugin install. Run after upstream changes that affect the baseline schema or options.",
+        "phpstan": "Run PHPStan static analysis with a 2G memory limit.",
+        "phpstan:baseline": "Generate a PHPStan baseline with a 2G memory limit."
     }
 }
