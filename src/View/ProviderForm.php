@@ -104,6 +104,23 @@ array_walk(
 		if ( 'creditcard' === $group['id'] ) {
 			if ( is_user_logged_in() ) {
 				\Paytrail\WooCommercePaymentGateway\Gateway::render_saved_payment_methods();
+			} elseif ( \Paytrail\WooCommercePaymentGateway\Helper::getIsSubscriptionsEnabled() ) {
+				// A card can only be saved to an account, and a subscription cannot be renewed without one.
+				$mypage_link = get_permalink( wc_get_page_id( 'myaccount' ) );
+				echo '<p class="add-card-login-description" role="link">';
+				printf(
+					wp_kses(
+						/* translators: %s - My account / login URL */
+						__( 'Paying for a subscription requires a saved card. Please <a href="%s">log in to the store or create an account</a> to add one.', 'paytrail-for-woocommerce' ),
+						array(
+							'a' => array(
+								'href' => array(),
+							),
+						)
+					),
+					esc_url( $mypage_link )
+				);
+				echo '</p>';
 			} elseif ( $show_card_saving && 1 === intval( get_option( 'users_can_register' ) ) ) {
 				$mypage_link = get_permalink( wc_get_page_id( 'myaccount' ) );
 				echo '<p class="add-card-login-description" role="link">';
