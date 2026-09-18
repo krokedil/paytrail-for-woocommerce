@@ -129,6 +129,7 @@ abstract class IntegrationTestCase extends WPTestCase {
 		$this->deleteAllTaxRates();
 		$this->haveStorePages();
 		$this->emptyCart();
+		$this->haveGuestCustomer();
 		$this->haveCustomerAddress();
 		$this->setGatewaySettings( [] );
 		$this->resetGatewaySession();
