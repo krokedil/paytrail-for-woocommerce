@@ -1600,12 +1600,12 @@ final class Gateway extends \WC_Payment_Gateway {
 			throw new \Exception( esc_html__( 'We couldn\'t process your payment. You have not been charged. Please check your payment details and try again, or contact us if the problem continues.', 'paytrail-for-woocommerce' ) );
 		}
 
-		if ( $this->use_provider_selection() ) {
-			$this->log( 'Paytrail: create_normal_payment, use_provider_selection = true', 'debug' );
-			$providers = $response->getProviders();
+		$wanted_provider = $this->use_provider_selection()
+			? $this->get_wanted_provider( $response->getProviders(), $payment_provider )
+			: null;
 
-			// Get only the wanted payment provider object.
-			$wanted_provider = $this->get_wanted_provider( $providers, $payment_provider );
+		if ( $wanted_provider ) {
+			$this->log( 'Paytrail: create_normal_payment, provider resolved', 'debug' );
 
 			WC()->session->set( 'payment_provider', $wanted_provider );
 
@@ -1616,33 +1616,33 @@ final class Gateway extends \WC_Payment_Gateway {
 					'paytrail-for-woocommerce'
 				),
 				$response->getTransactionId(),
-				$wanted_provider && ! empty( $wanted_provider->getName() ) ? $wanted_provider->getName() : ucfirst( $payment_provider )
+				! empty( $wanted_provider->getName() ) ? $wanted_provider->getName() : ucfirst( $payment_provider )
 			);
-			$this->log( 'Paytrail: create_normal_payment, use_provider_selection = true, redirect', 'debug' );
+			$this->log( 'Paytrail: create_normal_payment, provider resolved, redirect', 'debug' );
 			$order->add_order_note( $message );
 
 			return array(
 				'result'   => 'success',
 				'redirect' => $order->get_checkout_payment_url( true ),
 			);
-		} else {
-			$this->log( 'Paytrail: create_normal_payment, use_provider_selection = false', 'debug' );
-			$message = sprintf(
-				// translators: First parameter is transaction ID, the other is the name of the payment provider.
-				__(
-					'Transaction %1$s created and user redirected to the payment provider selection page.',
-					'paytrail-for-woocommerce'
-				),
-				$response->getTransactionId()
-			);
-
-			$order->add_order_note( $message );
-			$this->log( 'Paytrail: create_normal_payment, use_provider_selection = false, redirect', 'debug' );
-			return array(
-				'result'   => 'success',
-				'redirect' => $response->getHref(),
-			);
 		}
+
+		$this->log( 'Paytrail: create_normal_payment, no provider resolved', 'debug' );
+		$message = sprintf(
+			// translators: First parameter is transaction ID, the other is the name of the payment provider.
+			__(
+				'Transaction %1$s created and user redirected to the payment provider selection page.',
+				'paytrail-for-woocommerce'
+			),
+			$response->getTransactionId()
+		);
+
+		$order->add_order_note( $message );
+		$this->log( 'Paytrail: create_normal_payment, no provider resolved, redirect', 'debug' );
+		return array(
+			'result'   => 'success',
+			'redirect' => $response->getHref(),
+		);
 	}
 
 	/**
