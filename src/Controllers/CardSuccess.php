@@ -62,8 +62,12 @@ class CardSuccess extends AbstractController {
 		$gateway = Plugin::instance()->gateway();
 		try {
 			$token_id = $gateway->process_card_token();
-			$gateway->set_subscription_card( Helper::getIsChangeSubscriptionPaymentMethod(), $token_id );
-			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
+
+			if ( $gateway->set_subscription_card( Helper::getIsChangeSubscriptionPaymentMethod(), $token_id ) ) {
+				wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
+			} else {
+				wc_add_notice( __( 'The card was saved, but the subscription could not be updated to use it.', 'paytrail-for-woocommerce' ), 'error' );
+			}
 		} catch ( HmacException $e ) {
 			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
 		} catch ( ValidationException $e ) {

@@ -776,11 +776,11 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param int|string $subscription_id The subscription to charge with the new card.
 	 * @param int        $token_id        The stored card token.
-	 * @return void
+	 * @return bool Whether the subscription was re-pointed at the card.
 	 */
 	public function set_subscription_card( $subscription_id, $token_id ) {
 		if ( ! $subscription_id || ! $token_id || ! function_exists( 'wcs_get_subscription' ) ) {
-			return;
+			return false;
 		}
 
 		$subscription = wcs_get_subscription( absint( $subscription_id ) );
@@ -788,13 +788,14 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		// The subscription comes from the request, so only the card owner's own subscription may be re-pointed.
 		if ( ! $subscription || ! $token || $subscription->get_customer_id() !== $token->get_user_id() ) {
-			return;
+			return false;
 		}
 
 		$this->log( 'Paytrail: set_subscription_card for subscription ' . $subscription->get_id(), 'debug' );
 
-		$subscription->get_data_store()->update_payment_token_ids( $subscription, array() );
-		$subscription->add_payment_token( $token );
+		$subscription->get_data_store()->update_payment_token_ids( $subscription, array( $token->get_id() ) );
+
+		return true;
 	}
 
 	/**
