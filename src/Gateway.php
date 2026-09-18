@@ -693,9 +693,13 @@ final class Gateway extends \WC_Payment_Gateway {
 			$success_url = Router::get_url( Plugin::ADD_CARD_REDIRECT_SUCCESS_URL, Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT );
 			$cancel_url  = Router::get_url( Plugin::ADD_CARD_REDIRECT_CANCEL_URL, Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT );
 		} elseif ( Helper::getIsChangeSubscriptionPaymentMethod() ) {
-			$success_url = Router::get_url(
-				Plugin::ADD_CARD_REDIRECT_SUCCESS_URL,
-				Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD
+			$success_url = add_query_arg(
+				'change_payment_method',
+				Helper::getIsChangeSubscriptionPaymentMethod(),
+				Router::get_url(
+					Plugin::ADD_CARD_REDIRECT_SUCCESS_URL,
+					Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD
+				)
 			);
 			$cancel_url  = Router::get_url(
 				Plugin::ADD_CARD_REDIRECT_CANCEL_URL,
@@ -731,7 +735,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Process card token
 	 *
-	 * @return bool
+	 * @return int The saved token ID, or 0 when saving failed.
 	 * @throws HmacException If the response signature does not validate.
 	 * @throws ValidationException If the request is rejected by the API.
 	 */
@@ -742,7 +746,7 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		$response = $this->client->createGetTokenRequest( $get_token_request );
 
-		return (bool) $this->save_card_token( $response );
+		return $this->save_card_token( $response );
 	}
 
 	/**
@@ -765,6 +769,33 @@ final class Gateway extends \WC_Payment_Gateway {
 		\WC_Payment_Tokens::set_users_default( get_current_user_id(), $token->get_id() );
 
 		return $token->save();
+	}
+
+	/**
+	 * Point a subscription at a newly stored card.
+	 *
+	 * @param int|string $subscription_id The subscription to charge with the new card.
+	 * @param int        $token_id        The stored card token.
+	 * @return bool Whether the subscription was re-pointed at the card.
+	 */
+	public function set_subscription_card( $subscription_id, $token_id ) {
+		if ( ! $subscription_id || ! $token_id || ! function_exists( 'wcs_get_subscription' ) ) {
+			return false;
+		}
+
+		$subscription = wcs_get_subscription( absint( $subscription_id ) );
+		$token        = \WC_Payment_Tokens::get( $token_id );
+
+		// The subscription comes from the request, so only the card owner's own subscription may be re-pointed.
+		if ( ! $subscription || ! $token || $subscription->get_customer_id() !== $token->get_user_id() ) {
+			return false;
+		}
+
+		$this->log( 'Paytrail: set_subscription_card for subscription ' . $subscription->get_id(), 'debug' );
+
+		$subscription->get_data_store()->update_payment_token_ids( $subscription, array( $token->get_id() ) );
+
+		return true;
 	}
 
 	/**

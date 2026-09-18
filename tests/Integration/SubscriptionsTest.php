@@ -89,6 +89,44 @@ class SubscriptionsTest extends IntegrationTestCase {
 		$this->assertEmpty( $this->reload( $renewal )->get_date_paid() );
 	}
 
+	/**
+	 * A card added while changing the subscription's payment method replaces the one it
+	 * was paying with. A renewal charges the first card it finds, so a card added next to
+	 * the old one would never be used.
+	 *
+	 * @covers \Paytrail\WooCommercePaymentGateway\Gateway::set_subscription_card
+	 */
+	public function test_a_new_card_replaces_the_one_the_subscription_was_paying_with(): void {
+		$subscription = $this->haveSubscription();
+		$subscription->add_payment_token( $this->haveCardToken( [ 'token' => 'the-old-card' ] ) );
+		$subscription->save();
+
+		$new_card = $this->haveCardToken( [ 'token' => 'the-new-card' ] );
+
+		$this->assertTrue( $this->gateway()->set_subscription_card( $subscription->get_id(), $new_card->get_id() ) );
+		$this->assertSame( [ $new_card->get_id() ], $this->reload( $subscription )->get_payment_tokens() );
+	}
+
+	/**
+	 * The subscription to re-point is named in the URL Paytrail returns to, so a card may
+	 * only be moved onto a subscription belonging to the shopper who saved it. Saying so
+	 * is what stops the shopper being told their subscription was updated when it was not.
+	 *
+	 * @covers \Paytrail\WooCommercePaymentGateway\Gateway::set_subscription_card
+	 */
+	public function test_a_card_is_not_moved_onto_another_shoppers_subscription(): void {
+		$subscription = $this->haveSubscription();
+		$subscription->set_customer_id( 1 );
+		$old_card = $this->haveCardToken( [ 'token' => 'the-old-card', 'user_id' => 1 ] );
+		$subscription->add_payment_token( $old_card );
+		$subscription->save();
+
+		$someone_elses_card = $this->haveCardToken( [ 'token' => 'the-new-card', 'user_id' => 2 ] );
+
+		$this->assertFalse( $this->gateway()->set_subscription_card( $subscription->get_id(), $someone_elses_card->get_id() ) );
+		$this->assertSame( [ $old_card->get_id() ], $this->reload( $subscription )->get_payment_tokens() );
+	}
+
 	/** A renewal order for a subscription, with a saved card attached to it. */
 	private function haveRenewalWithCard( string $token = 'card-token-1' ): \WC_Order {
 		$renewal = $this->haveRenewalOrder();

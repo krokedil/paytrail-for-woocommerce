@@ -17,8 +17,14 @@ if ( ! $show_card_saving && ! $has_methods ) {
 	return;
 }
 
-if ( \Paytrail\WooCommercePaymentGateway\Helper::getIsChangeSubscriptionPaymentMethod() ) {
-	$add_card_form_url    = Router::get_url( Plugin::CARD_ENDPOINT, 'add' ) . '?change_payment_method=1';
+$change_payment_method = \Paytrail\WooCommercePaymentGateway\Helper::getIsChangeSubscriptionPaymentMethod();
+
+if ( $change_payment_method ) {
+	$add_card_form_url    = add_query_arg(
+		'change_payment_method',
+		$change_payment_method,
+		Router::get_url( Plugin::CARD_ENDPOINT, 'add' )
+	);
 	$is_subscription_page = true;
 } else {
 	$add_card_form_url    = Router::get_url( Plugin::CARD_ENDPOINT, 'add' );
