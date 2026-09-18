@@ -7,6 +7,7 @@ namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
 use Paytrail\SDK\Exception\HmacException;
 use Paytrail\SDK\Exception\ValidationException;
+use Paytrail\WooCommercePaymentGateway\Helper;
 use Paytrail\WooCommercePaymentGateway\Plugin;
 
 /**
@@ -60,7 +61,8 @@ class CardSuccess extends AbstractController {
 	protected function change_payment_method() {
 		$gateway = Plugin::instance()->gateway();
 		try {
-			$gateway->process_card_token();
+			$token_id = $gateway->process_card_token();
+			$gateway->set_subscription_card( Helper::getIsChangeSubscriptionPaymentMethod(), $token_id );
 			wc_add_notice( __( 'Card was added successfully', 'paytrail-for-woocommerce' ), 'success' );
 		} catch ( HmacException $e ) {
 			wc_add_notice( __( 'Could not add card details', 'paytrail-for-woocommerce' ), 'error' );
