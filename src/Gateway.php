@@ -1629,7 +1629,7 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		$this->log( 'Paytrail: create_normal_payment, no provider resolved', 'debug' );
 		$message = sprintf(
-			// translators: First parameter is transaction ID, the other is the name of the payment provider.
+			// translators: First parameter is transaction ID.
 			__(
 				'Transaction %1$s created and user redirected to the payment provider selection page.',
 				'paytrail-for-woocommerce'
