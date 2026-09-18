@@ -1334,6 +1334,38 @@ final class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
+	 * Get the stored card matching a token ID submitted by the customer.
+	 *
+	 * @param string|int $token_id The submitted token ID.
+	 * @return \WC_Payment_Token The stored card belonging to the current customer.
+	 * @throws \Exception If the token is not a card saved by the current customer.
+	 */
+	protected function get_customer_payment_token( $token_id ) {
+		$customer_id = get_current_user_id();
+		$token_id    = absint( $token_id );
+		$token       = $customer_id ? \WC_Payment_Tokens::get( $token_id ) : null;
+
+		if ( ! $token
+			|| absint( $token->get_user_id() ) !== $customer_id
+			|| Plugin::GATEWAY_ID !== $token->get_gateway_id() ) {
+			$this->log(
+				sprintf(
+					'Paytrail: token %1$d is not a card saved by customer %2$d, refusing the payment',
+					$token_id,
+					$customer_id
+				),
+				'error'
+			);
+
+			$message = __( 'The chosen card is not available. Please choose one of your saved cards, or add a new one.', 'paytrail-for-woocommerce' );
+
+			throw new \Exception( esc_html( $message ) );
+		}
+
+		return $token;
+	}
+
+	/**
 	 * Handle refund response functionalities
 	 *
 	 * @param string     $refund_callback  Refund callback status.
@@ -1528,7 +1560,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		}
 
 		if ( $is_token_payment ) {
-			$token = \WC_Payment_Tokens::get( $token_id );
+			$token = $this->get_customer_payment_token( $token_id );
 
 			$this->log( 'Paytrail: process_payment, add_payment_token', 'debug' );
 			$order->add_payment_token( $token );
@@ -1542,13 +1574,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			}
 
 			$payment = new CitPaymentRequest();
-
-			if ( $token && method_exists( $token, 'get_token' ) ) {
-				$payment->setToken( $token->get_token() );
-			} else {
-				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r -- Diagnostic detail for the plugin's own log, not output.
-				$this->log( 'Paytrail: Token value: ' . print_r( $token, true ), 'debug' );
-			}
+			$payment->setToken( $token->get_token() );
 		} else {
 			$this->log( 'Paytrail: init PaymentRequest', 'debug' );
 			$payment = new PaymentRequest();
