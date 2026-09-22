@@ -150,38 +150,22 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 		}
 
 		// Check if tokenized card is used.
-		if ( ! empty( $payment_data['wc-paytrail-payment-token'] ) ) {
-			$token_id = $payment_data['wc-paytrail-payment-token'];
-			$token    = WC_Payment_Tokens::get( $token_id );
+		$token_id = ! empty( $payment_data['wc-paytrail-payment-token'] )
+			? $payment_data['wc-paytrail-payment-token']
+			: null;
 
-			if ( $token && $token->validate() ) {
-				$payment_result = $gateway->process_paytrail_payment( $order, $token_id, null, false );
-
-				if ( 'success' === $payment_result['result'] ) {
-					$result->set_status( 'success' );
-					$result->set_redirect_url( $payment_result['redirect'] );
-				} else {
-					$result->set_status( 'failure' );
-					$result->set_payment_details(
-						array(
-							'error_message' => __( 'Payment failed, please try again.', 'paytrail-for-woocommerce' ),
-						)
-					);
-				}
-
-				return $result;
-			}
+		if ( $token_id ) {
+			$payment_result = $gateway->process_paytrail_payment( $order, $token_id, null, false );
+		} else {
+			$payment_result = $gateway->process_paytrail_payment(
+				$order,
+				null,
+				! empty( $payment_data['payment_provider'] )
+					? $payment_data['payment_provider']
+					: $payment_data['payment_method'],
+				false
+			);
 		}
-
-		// Process payment normally if no tokenized card is used.
-		$payment_result = $gateway->process_paytrail_payment(
-			$order,
-			null,
-			! empty( $payment_data['payment_provider'] )
-				? $payment_data['payment_provider']
-				: $payment_data['payment_method'],
-			false
-		);
 
 		if ( 'success' === $payment_result['result'] ) {
 			$result->set_status( 'success' );
@@ -297,7 +281,7 @@ class Paytrail_Blocks_Support extends AbstractPaymentMethodType {
 
 		$grouped_providers = $gateway->get_grouped_payment_providers();
 		$this->get_payment_method_style_handles();
-		$tokens = WC_Payment_Tokens::get_customer_tokens( get_current_user_id() );
+		$tokens = WC_Payment_Tokens::get_customer_tokens( get_current_user_id(), Plugin::GATEWAY_ID );
 
 		return array(
 			'title'                 => $gateway->title,
