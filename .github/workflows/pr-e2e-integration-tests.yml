@@ -27,6 +27,7 @@ jobs:
             matrix:
                 php: ["8.4"]
         env:
+            WORDPRESS_VERSION: "7.1.1"
             WORDPRESS_URL: http://localhost:8080
             WORDPRESS_DOMAIN: localhost
             WORDPRESS_DB_URL: sqlite://%codecept_root_dir%/tests/_wordpress/data/db.sqlite
@@ -130,6 +131,7 @@ jobs:
                 php: ["8.4"]
         environment: e2e
         env:
+            WORDPRESS_VERSION: "7.1.1"
             # One ngrok endpoint per PR number, so two open PRs never fight over the same tunnel.
             NGROK_DOMAIN: paytrail-test-${{ github.event.pull_request.number }}.internal
             # Only Paytrail's callbacks use the tunnel; the browser drives the site locally.
