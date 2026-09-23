@@ -25,11 +25,6 @@ parameters:
       count: 1
       path: src/Controllers/OrderManagement.php
 
-    - message: '#^Access to an undefined property WC_Order\:\:\$ID\.$#'
-      identifier: property.notFound
-      count: 1
-      path: src/Gateway.php
-
     - message: '#^Call to an undefined method WC_Order_Item\:\:get_taxes\(\)\.$#'
       identifier: method.notFound
       count: 1
@@ -53,11 +48,6 @@ parameters:
     - message: '#^Parameter \#1 \$prefix of function uniqid expects string, true given\.$#'
       identifier: argument.type
       count: 2
-      path: src/Gateway.php
-
-    - message: '#^Parameter \#1 \$token_id of static method WC_Payment_Tokens\:\:get\(\) expects int, string given\.$#'
-      identifier: argument.type
-      count: 1
       path: src/Gateway.php
 
     - message: '#^Parameter \#2 \$value of method WC_Data\:\:update_meta_data\(\) expects array\|string, float given\.$#'
@@ -137,17 +127,17 @@ parameters:
 
     - message: '#^Call to method set_payment_details\(\) on an unknown class Automattic\\WooCommerce\\StoreApi\\Payments\\PaymentResult\.$#'
       identifier: class.notFound
-      count: 2
+      count: 1
       path: src/PaytrailBlocks.php
 
     - message: '#^Call to method set_redirect_url\(\) on an unknown class Automattic\\WooCommerce\\StoreApi\\Payments\\PaymentResult\.$#'
       identifier: class.notFound
-      count: 2
+      count: 1
       path: src/PaytrailBlocks.php
 
     - message: '#^Call to method set_status\(\) on an unknown class Automattic\\WooCommerce\\StoreApi\\Payments\\PaymentResult\.$#'
       identifier: class.notFound
-      count: 4
+      count: 2
       path: src/PaytrailBlocks.php
 
     - message: '#^Method Paytrail\\WooCommercePaymentGateway\\Paytrail_Blocks_Support\:\:add_payment_request_order_meta\(\) has invalid return type Automattic\\WooCommerce\\StoreApi\\Payments\\PaymentResult\.$#'

@@ -77,6 +77,24 @@ trait CanBuildCartsAndOrders {
 		);
 	}
 
+	/** A customer account, signed in so the store sees the shopper as that customer. */
+	protected function haveSignedInCustomer(): int {
+		$customer_id = (int) static::factory()->user->create( [ 'role' => 'customer' ] );
+		wp_set_current_user( $customer_id );
+
+		return $customer_id;
+	}
+
+	/** A customer account nobody is signed in as. */
+	protected function haveCustomerAccount(): int {
+		return (int) static::factory()->user->create( [ 'role' => 'customer' ] );
+	}
+
+	/** Signs the shopper out, leaving the store with a guest. */
+	protected function haveGuestCustomer(): void {
+		wp_set_current_user( 0 );
+	}
+
 	/** Blanks every address field on WC()->customer and then applies the given ones. */
 	protected function haveCustomerAddress( array $billing = [], array $shipping = [] ): void {
 		$customer = WC()->customer;
@@ -335,7 +353,7 @@ trait CanBuildCartsAndOrders {
 				'last4'        => '0024',
 				'expiry_month' => '11',
 				'expiry_year'  => '2032',
-				'user_id'      => 0,
+				'user_id'      => get_current_user_id(),
 			],
 			$args
 		);

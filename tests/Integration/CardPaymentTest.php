@@ -122,6 +122,59 @@ class CardPaymentTest extends IntegrationTestCase {
 		$this->assertEmpty( $this->reload( $order )->get_date_paid() );
 	}
 
+	/**
+	 * The token id arrives in the checkout POST and WooCommerce does not check whose card
+	 * it is, so a card that is not the signed-in shopper's own is refused here.
+	 *
+	 * @dataProvider provide_cards_the_shopper_does_not_own
+	 */
+	public function test_a_card_the_shopper_does_not_own_is_refused( string $owner ): void {
+		$order    = $this->havePurchasableOrder();
+		$token_id = $this->haveCardTokenOwnedBy( $owner );
+
+		$this->willChargeCard();
+
+		$refusal = null;
+
+		try {
+			$this->gateway()->process_paytrail_payment( $order, $token_id, '', false );
+		} catch ( \Exception $exception ) {
+			$refusal = $exception;
+		}
+
+		$this->assertNotNull( $refusal, 'A card the shopper does not own should stop the checkout.' );
+		$this->assertStringContainsString( 'The chosen card is not available', $refusal->getMessage() );
+
+		$this->assertNoApiRequests( 'A card the shopper does not own is never charged.' );
+		$this->assertSame( [], $this->reload( $order )->get_payment_tokens() );
+	}
+
+	/** @return array<string, array{0: string}> */
+	public function provide_cards_the_shopper_does_not_own(): array {
+		return [
+			'saved by another customer' => [ 'another customer' ],
+			'saved for another gateway' => [ 'another gateway' ],
+			'saved while signed out'    => [ 'a guest' ],
+		];
+	}
+
+	/** A token that exists but belongs to someone, or something, other than the shopper. */
+	private function haveCardTokenOwnedBy( string $owner ): int {
+		switch ( $owner ) {
+			case 'another customer':
+				return $this->haveCardToken( [ 'user_id' => $this->haveCustomerAccount() ] )->get_id();
+			case 'another gateway':
+				return $this->haveCardToken( [ 'gateway_id' => 'another-gateway' ] )->get_id();
+			case 'a guest':
+				$token = $this->haveCardToken( [ 'user_id' => 0 ] );
+				$this->haveGuestCustomer();
+
+				return $token->get_id();
+			default:
+				throw new \InvalidArgumentException( sprintf( 'Unknown card owner "%s".', $owner ) );
+		}
+	}
+
 	private function queue3dsChallenge( string $shape ): void {
 		if ( '403' === $shape ) {
 			$this->willChallengeCardWith3ds();
@@ -131,7 +184,10 @@ class CardPaymentTest extends IntegrationTestCase {
 		$this->willChargeCard( 'paytrail-cit-1', 'https://3ds.example.com/authenticate/1' );
 	}
 
+	/** A signed-in shopper with an order to pay, which is where a card charge starts. */
 	private function havePurchasableOrder(): \WC_Order {
+		$this->haveSignedInCustomer();
+
 		return $this->haveOrder(
 			[
 				'items'   => [ [ $this->haveSimpleProduct( [ 'name' => 'Sauna bucket', 'sku' => 'sauna-bucket', 'price' => '100.00' ] ), 1 ] ],
