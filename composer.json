@@ -55,7 +55,7 @@
         "allure-framework/allure-codeception": "^2",
         "composer/installers": "^2.0",
         "wpackagist-plugin/woocommerce": "^10.0",
-        "wpackagist-plugin/sqlite-database-integration": "^2.2",
+        "wpackagist-plugin/sqlite-database-integration": "^3.0",
         "wpackagist-theme/storefront": "^4.6",
         "php-stubs/woocommerce-stubs": "^10.8.0",
         "php-stubs/woocommerce-subscriptions-stubs": "*",
