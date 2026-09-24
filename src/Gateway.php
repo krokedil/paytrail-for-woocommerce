@@ -693,15 +693,18 @@ final class Gateway extends \WC_Payment_Gateway {
 			$success_url = Router::get_url( Plugin::ADD_CARD_REDIRECT_SUCCESS_URL, Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT );
 			$cancel_url  = Router::get_url( Plugin::ADD_CARD_REDIRECT_CANCEL_URL, Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT );
 		} elseif ( Helper::getIsChangeSubscriptionPaymentMethod() ) {
-			$success_url = add_query_arg(
-				'change_payment_method',
-				Helper::getIsChangeSubscriptionPaymentMethod(),
+			$subscription_id = absint( Helper::getIsChangeSubscriptionPaymentMethod() );
+			$success_url     = add_query_arg(
+				array(
+					'change_payment_method' => $subscription_id,
+					'_paytrail_nonce'       => wp_create_nonce( 'paytrail_change_payment_method_' . $subscription_id ),
+				),
 				Router::get_url(
 					Plugin::ADD_CARD_REDIRECT_SUCCESS_URL,
 					Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD
 				)
 			);
-			$cancel_url  = Router::get_url(
+			$cancel_url      = Router::get_url(
 				Plugin::ADD_CARD_REDIRECT_CANCEL_URL,
 				Plugin::ADD_CARD_CONTEXT_CHANGE_PAYMENT_METHOD
 			);
