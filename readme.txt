@@ -60,7 +60,6 @@ With test credentials, you can test most of the payment methods included in Payt
 - Added a "Card saving" setting to hide the "Add new card" button and the related login prompt at checkout. This is for merchants whose Paytrail agreement doesn't include card tokenization. Card saving is always shown for subscription purchases.
 - Improved performance: the payment provider list is now fetched only on the checkout page and reused within the same request. Before, it was fetched on every page with a mini-cart and in the block editor, which slowed down the whole site.
 - Improved the redirect back to the store after payment, which is now up to several seconds faster. Paytrail's payment notifications are now handled in the background with WooCommerce's scheduled actions, instead of making the customer wait.
-- Improved security by making sure customers can only pay with cards saved to their own account.
 - Fixed an issue where adding a new card while changing a subscription's payment method did not update the subscription, so renewals kept charging the old card.
 - Fixed newly added cards not being set as the customer's default card.
 - Fixed the "Add new card" option not showing for subscription purchases when payment provider selection is turned off. Guest customers are now told to log in or create an account, because a subscription needs a saved card.

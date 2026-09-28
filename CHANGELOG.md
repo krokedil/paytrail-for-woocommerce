@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved performance: the payment provider list is now fetched only on the checkout page and reused within the same request. Before, it was fetched on every page with a mini-cart and in the block editor, which slowed down the whole site.
 - Improved the redirect back to the store after payment, which is now up to several seconds faster. Paytrail's payment notifications are now handled in the background with WooCommerce's scheduled actions, instead of making the customer wait.
-- Improved security by making sure customers can only pay with cards saved to their own account.
 ### Fixed
 - Fixed an issue where adding a new card while changing a subscription's payment method did not update the subscription, so renewals kept charging the old card.
 - Fixed newly added cards not being set as the customer's default card.
