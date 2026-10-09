@@ -10,12 +10,15 @@ use Paytrail\SDK\Exception\ValidationException;
 use Paytrail\SDK\Request\AddCardFormRequest;
 use Paytrail\SDK\Request\CitPaymentRequest;
 use Paytrail\SDK\Request\GetTokenRequest;
+use Paytrail\SDK\Request\KlarnaPaymentRequest;
 use Paytrail\SDK\Request\MitPaymentRequest;
 use Paytrail\SDK\Request\PaymentRequest;
 use Paytrail\SDK\Model\Customer;
 use Paytrail\SDK\Model\Address;
 use Paytrail\SDK\Model\Item;
 use Paytrail\SDK\Model\CallbackUrl;
+use Paytrail\SDK\Model\KlarnaProviderDetails;
+use Paytrail\SDK\Model\ProviderDetails;
 use Paytrail\SDK\Exception\HmacException;
 use Paytrail\SDK\Request\RefundRequest;
 use Paytrail\SDK\Client;
@@ -1786,6 +1789,62 @@ final class Gateway extends \WC_Payment_Gateway {
 			'result'   => 'success',
 			'redirect' => $redirect_url,
 		);
+	}
+
+	/**
+	 * Charge a Klarna Express Checkout order with the Klarna network session token.
+	 *
+	 * @param WC_Order $order                 The order created by Klarna Express Checkout.
+	 * @param string   $network_session_token The Klarna network session token.
+	 * @return string The URL to redirect the customer to.
+	 */
+	public function process_klarna_express_payment( WC_Order $order, string $network_session_token ) {
+		$this->log( 'Paytrail: process_klarna_express_payment, order ' . $order->get_id(), 'debug' );
+
+		$order->set_payment_method( $this->id );
+		$order->set_payment_method_title( $this->get_title() );
+
+		$payment = new KlarnaPaymentRequest();
+
+		try {
+			$this->set_base_payment_data( $payment, $order );
+			$payment->setProviderDetails(
+				( new ProviderDetails() )->setKlarna(
+					( new KlarnaProviderDetails() )->setNetworkSessionToken( $network_session_token )
+				)
+			);
+
+			// The reference lets the regular callback find the order if Klarna requires a step-up.
+			$order->update_meta_data( '_checkout_reference', $payment->getReference() );
+			$order->update_meta_data( '_checkout_reference_' . $payment->getReference(), true );
+			$order->update_meta_data( '_checkout_payment_provider', 'klarna' );
+			$order->save();
+
+			$this->log( 'Paytrail\SDK\Request\KlarnaPaymentRequest: ' . wp_json_encode( $payment ), 'info' );
+			$response = $this->client->createKlarnaPaymentCharge( $payment );
+		} catch ( \Exception $exception ) {
+			$this->log( $exception->getMessage() . $exception->getTraceAsString(), 'error' );
+			$order->update_status( 'failed', __( 'Klarna Express Checkout payment could not be created with Paytrail.', 'paytrail-for-woocommerce' ) );
+
+			return $order->get_checkout_payment_url();
+		}
+
+		$order->add_order_note(
+			sprintf(
+				// translators: First parameter is transaction ID, the other whether Klarna required the customer to take further action.
+				__( 'Transaction %1$s created with Klarna Express Checkout. Requires step-up: %2$s', 'paytrail-for-woocommerce' ),
+				$response->getTransactionId(),
+				$response->getStepUpUrl() ? __( 'yes', 'paytrail-for-woocommerce' ) : __( 'no', 'paytrail-for-woocommerce' )
+			)
+		);
+
+		if ( $response->getStepUpUrl() ) {
+			return $response->getStepUpUrl();
+		}
+
+		$order->payment_complete( $response->getTransactionId() );
+
+		return $order->get_checkout_order_received_url();
 	}
 
 	/**
