@@ -242,6 +242,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		$this->register_scripts();
 
 		new Controllers\MetaBox();
+		new Controllers\SubscriptionToken();
 	}
 
 	/**
