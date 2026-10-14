@@ -21,6 +21,7 @@ use Paytrail\SDK\Model\KlarnaProviderDetails;
 use Paytrail\SDK\Model\ProviderDetails;
 use Paytrail\SDK\Exception\HmacException;
 use Paytrail\SDK\Request\RefundRequest;
+use Paytrail\SDK\Request\RevertPaymentAuthHoldRequest;
 use Paytrail\SDK\Client;
 use Paytrail\SDK\Request\EmailRefundRequest;
 use Paytrail\SDK\Response\GetTokenResponse;
@@ -1803,7 +1804,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
-	 * Charge a Klarna Express Checkout order with the Klarna network session token.
+	 * Charge or authorize a Klarna Express Checkout order with the Klarna network session token.
 	 *
 	 * @param WC_Order $order                 The order created by Klarna Express Checkout.
 	 * @param string   $network_session_token The Klarna network session token.
@@ -1811,6 +1812,14 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	public function process_klarna_express_payment( WC_Order $order, string $network_session_token ) {
 		$this->log( 'Paytrail: process_klarna_express_payment, order ' . $order->get_id(), 'debug' );
+
+		// Klarna resends the notification on errors and timeouts, never create a second payment for the order.
+		$redirect_url = $order->get_meta( '_paytrail_klarna_redirect_url' );
+		if ( $order->is_paid() || ! empty( $redirect_url ) ) {
+			$this->log( 'Paytrail: process_klarna_express_payment, payment already created for order ' . $order->get_id(), 'debug' );
+
+			return ! empty( $redirect_url ) ? $redirect_url : $order->get_checkout_order_received_url();
+		}
 
 		$order->set_payment_method( $this->id );
 		$order->set_payment_method_title( $this->get_title() );
@@ -1832,13 +1841,37 @@ final class Gateway extends \WC_Payment_Gateway {
 			$order->save();
 
 			$this->log( 'Paytrail\SDK\Request\KlarnaPaymentRequest: ' . wp_json_encode( $payment ), 'info' );
-			$response = $this->client->createKlarnaPaymentCharge( $payment );
+
+			// The Klarna endpoints ignore manualInvoiceActivation, so manual activation needs an authorization hold.
+			$authorization_hold = $payment->getManualInvoiceActivation();
+			$response           = $authorization_hold
+				? $this->client->createKlarnaPaymentAuthorizationHold( $payment )
+				: $this->client->createKlarnaPaymentCharge( $payment );
 		} catch ( \Exception $exception ) {
 			$this->log( $exception->getMessage() . $exception->getTraceAsString(), 'error' );
 			$order->update_status( 'failed', __( 'Klarna Express Checkout payment could not be created with Paytrail.', 'paytrail-for-woocommerce' ) );
 
 			return $order->get_checkout_payment_url();
 		}
+
+		$this->log(
+			'Paytrail\SDK\Response\KlarnaPaymentResponse: ' . wp_json_encode(
+				array(
+					'transactionId' => $response->getTransactionId(),
+					'stepUpUrl'     => $response->getStepUpUrl(),
+					'error'         => $response->getError(),
+				)
+			),
+			'info'
+		);
+
+		$redirect_url = $response->getStepUpUrl() ? $response->getStepUpUrl() : $order->get_checkout_order_received_url();
+
+		$order->update_meta_data( '_paytrail_klarna_redirect_url', $redirect_url );
+		if ( $authorization_hold ) {
+			$order->update_meta_data( '_paytrail_klarna_authorization_hold', 'yes' );
+		}
+		$order->save();
 
 		$order->add_order_note(
 			sprintf(
@@ -1849,13 +1882,47 @@ final class Gateway extends \WC_Payment_Gateway {
 			)
 		);
 
-		if ( $response->getStepUpUrl() ) {
-			return $response->getStepUpUrl();
+		if ( ! $response->getStepUpUrl() ) {
+			$order->payment_complete( $response->getTransactionId() );
 		}
 
-		$order->payment_complete( $response->getTransactionId() );
+		return $redirect_url;
+	}
 
-		return $order->get_checkout_order_received_url();
+	/**
+	 * Commit (capture) the Klarna authorization hold of a Klarna Express Checkout order.
+	 *
+	 * @param WC_Order $order The order to capture.
+	 * @return void
+	 * @throws \Exception If the commit fails.
+	 */
+	public function commit_klarna_authorization_hold( WC_Order $order ) {
+		$payment = $this->set_base_payment_data( new PaymentRequest(), $order );
+
+		$this->log( 'Paytrail: commit_klarna_authorization_hold, order ' . $order->get_id(), 'debug' );
+		$this->client->createKlarnaPaymentCommit( $payment, $order->get_transaction_id() );
+
+		$order->delete_meta_data( '_paytrail_klarna_authorization_hold' );
+		$order->add_order_note( __( 'Captured Klarna authorization hold.', 'paytrail-for-woocommerce' ) );
+		$order->save();
+	}
+
+	/**
+	 * Revert (void) the Klarna authorization hold of a Klarna Express Checkout order.
+	 *
+	 * @param WC_Order $order The order to void.
+	 * @return void
+	 * @throws \Exception If the revert fails.
+	 */
+	public function revert_klarna_authorization_hold( WC_Order $order ) {
+		$this->log( 'Paytrail: revert_klarna_authorization_hold, order ' . $order->get_id(), 'debug' );
+		$this->client->revertKlarnaPaymentAuthorizationHold(
+			( new RevertPaymentAuthHoldRequest() )->setTransactionId( $order->get_transaction_id() )
+		);
+
+		$order->delete_meta_data( '_paytrail_klarna_authorization_hold' );
+		$order->add_order_note( __( 'Voided Klarna authorization hold.', 'paytrail-for-woocommerce' ) );
+		$order->save();
 	}
 
 	/**
