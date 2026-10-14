@@ -1917,8 +1917,8 @@ final class Gateway extends \WC_Payment_Gateway {
 		// Set WooCommerce order number as the payment reference.
 		$payment->setReference( $reference );
 
-		// Fetch current currency and the cart total.
-		$currency    = get_woocommerce_currency();
+		// Use the order currency, the store currency can differ outside the customer's session (webhooks, renewals).
+		$currency    = $order->get_currency();
 		$order_total = $this->helper->handle_currency( $order->get_total() );
 
 		// Set the aforementioned values to the payment request.
