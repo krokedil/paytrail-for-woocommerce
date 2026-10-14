@@ -208,8 +208,19 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		// Set merchant ID and secret key either from the options or for test mode.
 		if ( $this->enable_test_mode ) {
-			$this->merchant_id = (int) Plugin::TEST_MERCHANT_ID;
-			$this->secret_key  = Plugin::TEST_SECRET_KEY;
+			/**
+			 * Filter the merchant ID used in test mode.
+			 *
+			 * @param int $merchant_id The test merchant ID.
+			 */
+			$this->merchant_id = (int) apply_filters( 'woocommerce_paytrail_test_merchant_id', Plugin::TEST_MERCHANT_ID );
+
+			/**
+			 * Filter the secret key used in test mode.
+			 *
+			 * @param string $secret_key The test secret key.
+			 */
+			$this->secret_key = (string) apply_filters( 'woocommerce_paytrail_test_secret_key', Plugin::TEST_SECRET_KEY );
 		} else {
 			$this->merchant_id = (int) $this->get_option( 'merchant_id' );
 			$this->secret_key  = $this->get_option( 'secret_key' );
