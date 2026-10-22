@@ -1867,6 +1867,8 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		$redirect_url = $response->getStepUpUrl() ? $response->getStepUpUrl() : $order->get_checkout_order_received_url();
 
+		// Set before a step-up completes too, so cancelling the order can still void the hold.
+		$order->set_transaction_id( $response->getTransactionId() );
 		$order->update_meta_data( '_paytrail_klarna_redirect_url', $redirect_url );
 		if ( $authorization_hold ) {
 			$order->update_meta_data( '_paytrail_klarna_authorization_hold', 'yes' );
