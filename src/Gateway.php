@@ -1974,7 +1974,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * Set payment data
 	 *
 	 * @param PaymentRequest|CitPaymentRequest|MitPaymentRequest|KlarnaPaymentRequest $payment The payment request to populate.
-	 * @param WC_Order                                           					  $order   The order being paid.
+	 * @param WC_Order                                                                $order   The order being paid.
 	 * @return mixed
 	 * @throws \Exception If the order data cannot be read.
 	 */
