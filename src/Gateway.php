@@ -1973,8 +1973,8 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Set payment data
 	 *
-	 * @param PaymentRequest|CitPaymentRequest|MitPaymentRequest $payment The payment request to populate.
-	 * @param WC_Order                                           $order   The order being paid.
+	 * @param PaymentRequest|CitPaymentRequest|MitPaymentRequest|KlarnaPaymentRequest $payment The payment request to populate.
+	 * @param WC_Order                                           					  $order   The order being paid.
 	 * @return mixed
 	 * @throws \Exception If the order data cannot be read.
 	 */
@@ -2360,7 +2360,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					$refund_object->update_meta_data( '_checkout_refund_amount', $amount );
 					$refund_object->update_meta_data( '_checkout_refund_reason', $reason );
 					$refund_object->update_meta_data( '_checkout_refund_unique_id', $refund_unique_id );
-					$refund_object->update_meta_data( '_checkout_refund_processing', true );
+					$refund_object->update_meta_data( '_checkout_refund_processing', '1' );
 
 					$refund_object->set_amount( '0' );
 					$refund_object->set_reason( $reason . ' Refund is still being processed. The status and the amount (' . $price . ') of the refund will update when the processing is completed.' );
