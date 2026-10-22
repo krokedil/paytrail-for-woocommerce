@@ -1897,10 +1897,8 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * @throws \Exception If the commit fails.
 	 */
 	public function commit_klarna_authorization_hold( WC_Order $order ) {
-		$payment = $this->set_base_payment_data( new PaymentRequest(), $order );
-
 		$this->log( 'Paytrail: commit_klarna_authorization_hold, order ' . $order->get_id(), 'debug' );
-		$this->client->createKlarnaPaymentCommit( $payment, $order->get_transaction_id() );
+		$this->client->createKlarnaPaymentCommit( $order->get_transaction_id() );
 
 		$order->delete_meta_data( '_paytrail_klarna_authorization_hold' );
 		$order->add_order_note( __( 'Captured Klarna authorization hold.', 'paytrail-for-woocommerce' ) );
