@@ -657,22 +657,24 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Receipt page to redirect user forward.
 	 *
-	 * Falls back to a link to the pay for order page when the session holds no provider.
+	 * Falls back to a link to the pay for order page when the session holds no provider for this order.
 	 *
 	 * @param int $order_id The WooCommerce order ID.
 	 *
 	 * @return void
 	 */
 	public function receipt_page( $order_id = 0 ) {
-		$order    = wc_get_order( $order_id );
-		$provider = WC()->session ? WC()->session->get( 'payment_provider' ) : null;
+		$order             = wc_get_order( $order_id );
+		$provider          = WC()->session ? WC()->session->get( 'payment_provider' ) : null;
+		$provider_order_id = WC()->session ? WC()->session->get( 'paytrail_payment_provider_order_id' ) : null;
 
 		// The provider form is single use: a reload must not re-submit the same transaction.
 		if ( WC()->session ) {
 			WC()->session->__unset( 'payment_provider' );
+			WC()->session->__unset( 'paytrail_payment_provider_order_id' );
 		}
 
-		if ( ! $order || ! $provider instanceof Provider ) {
+		if ( ! $order || ! $provider instanceof Provider || absint( $provider_order_id ) !== $order->get_id() ) {
 			printf(
 				'<p><a class="button" href="%s">%s</a></p>',
 				esc_url( $order ? $order->get_checkout_payment_url() : wc_get_checkout_url() ),
@@ -1712,6 +1714,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->log( 'Paytrail: create_normal_payment, provider resolved', 'debug' );
 
 			WC()->session->set( 'payment_provider', $wanted_provider );
+			WC()->session->set( 'paytrail_payment_provider_order_id', $order->get_id() );
 
 			$message = sprintf(
 				// translators: First parameter is transaction ID, the other is the name of the payment provider.
