@@ -16,6 +16,7 @@ use Paytrail\SDK\Model\Customer;
 use Paytrail\SDK\Model\Address;
 use Paytrail\SDK\Model\Item;
 use Paytrail\SDK\Model\CallbackUrl;
+use Paytrail\SDK\Model\Provider;
 use Paytrail\SDK\Exception\HmacException;
 use Paytrail\SDK\Request\RefundRequest;
 use Paytrail\SDK\Client;
@@ -656,12 +657,31 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Receipt page to redirect user forward.
 	 *
+	 * Falls back to a link to the pay for order page when the session holds no provider.
+	 *
+	 * @param int $order_id The WooCommerce order ID.
+	 *
 	 * @return void
 	 */
-	public function receipt_page() {
-		$view = new View( 'CheckoutForm' );
+	public function receipt_page( $order_id = 0 ) {
+		$order    = wc_get_order( $order_id );
+		$provider = WC()->session ? WC()->session->get( 'payment_provider' ) : null;
 
-		$provider = WC()->session->get( 'payment_provider' );
+		// The provider form is single use: a reload must not re-submit the same transaction.
+		if ( WC()->session ) {
+			WC()->session->__unset( 'payment_provider' );
+		}
+
+		if ( ! $order || ! $provider instanceof Provider ) {
+			printf(
+				'<p><a class="button" href="%s">%s</a></p>',
+				esc_url( $order ? $order->get_checkout_payment_url() : wc_get_checkout_url() ),
+				esc_html__( 'Choose payment method', 'paytrail-for-woocommerce' )
+			);
+			return;
+		}
+
+		$view = new View( 'CheckoutForm' );
 
 		$view->render( $provider );
 	}
