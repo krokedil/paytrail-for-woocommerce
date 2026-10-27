@@ -241,6 +241,8 @@ final class Plugin {
 		}
 	}
 
+	//a comment to trigger e2e tests
+
 	/**
 	 * Print custom styles
 	 */
