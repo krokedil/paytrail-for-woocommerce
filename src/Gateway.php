@@ -22,6 +22,7 @@ use Paytrail\SDK\Request\RefundRequest;
 use Paytrail\SDK\Client;
 use Paytrail\SDK\Request\EmailRefundRequest;
 use Paytrail\SDK\Response\GetTokenResponse;
+use Paytrail\SDK\Response\RefundResponse;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentSubscriptionMigration;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentTokenMigration;
 use Paytrail\WooCommercePaymentGateway\Providers\OPLasku;
@@ -1433,19 +1434,143 @@ final class Gateway extends \WC_Payment_Gateway {
 	public function handle_refund_response( $refund_callback, $refund_unique_id, $order_id, $params = null ) {
 		$params = null === $params ? $this->get_response_params() : (array) $params;
 
-		// Remove the callback indicators from the parameters.
-		$get = $params;
-
-		unset( $get['refund_callback'] );
-		unset( $get['refund_unique_id'] );
-		unset( $get['order_id'] );
-
-		// Check the HMAC.
+		// Check the HMAC. The SDK picks out the signed checkout- parameters itself.
 		try {
-			$this->client->validateHmac( $get, '', $params['signature'] ?? '' );
+			$this->client->validateHmac( $params, '', $params['signature'] ?? '' );
 		} catch ( HmacException $exception ) {
 			// Never wp_die() out of a queued action, it would take the queue runner with it.
 			$this->signature_error( $exception, ! $this->deferred_processing );
+		}
+
+		$signed_transaction_id = (string) ( $params['checkout-transaction-id'] ?? '' );
+
+		if ( '' === $signed_transaction_id ) {
+			$this->refuse_refund_callback(
+				'Paytrail: handle_refund_response, no signed transaction id for refund ' . $refund_unique_id,
+				__( 'Invalid refund callback.', 'paytrail-for-woocommerce' ),
+				400
+			);
+			return;
+		}
+
+		$refund = $this->get_refund_by_unique_id( $refund_unique_id );
+
+		if ( ! $refund ) {
+			$this->refuse_refund_callback(
+				'Paytrail: handle_refund_response, refund not found for unique id ' . $refund_unique_id,
+				__( 'Refund cannot be found.', 'paytrail-for-woocommerce' ),
+				404
+			);
+			return;
+		}
+
+		// The order comes from the refund, never from the unsigned order_id.
+		$order = \wc_get_order( $refund->get_parent_id() );
+
+		if ( ! $order || ! $this->refund_matches_transaction( $refund, $order, $signed_transaction_id ) ) {
+			$this->refuse_refund_callback(
+				sprintf(
+					'Paytrail: handle_refund_response, refund %1$d does not match transaction %2$s (order_id in request: %3$s)',
+					$refund->get_id(),
+					$signed_transaction_id,
+					$order_id
+				),
+				__( 'Refund callback does not match the order.', 'paytrail-for-woocommerce' ),
+				409
+			);
+			return;
+		}
+
+		if ( ! $refund->get_meta( '_checkout_refund_processing' ) ) {
+			$this->log( 'Paytrail: handle_refund_response, refund ' . $refund->get_id() . ' is already processed, skipping.', 'debug' );
+
+			if ( $this->deferred_processing ) {
+				return;
+			}
+
+			die( 'ok' );
+		}
+
+		$signed_status   = (string) ( $params['checkout-status'] ?? '' );
+		$status_callback = array(
+			'ok'   => 'success',
+			'fail' => 'cancel',
+		);
+
+		if ( ! isset( $status_callback[ $signed_status ] ) ) {
+			$this->log( 'Paytrail: handle_refund_response, refund ' . $refund->get_id() . ' has status ' . $signed_status . ', leaving it processing.', 'debug' );
+
+			if ( $this->deferred_processing ) {
+				return;
+			}
+
+			die( 'ok' );
+		}
+
+		if ( $status_callback[ $signed_status ] !== $refund_callback ) {
+			$this->refuse_refund_callback(
+				sprintf(
+					'Paytrail: handle_refund_response, refund_callback %1$s does not match the signed status %2$s for refund %3$d',
+					$refund_callback,
+					$signed_status,
+					$refund->get_id()
+				),
+				__( 'Refund callback does not match the order.', 'paytrail-for-woocommerce' ),
+				409
+			);
+			return;
+		}
+
+		switch ( $refund_callback ) {
+			case 'success':
+				$amount = $refund->get_meta( '_checkout_refund_amount' );
+				$reason = $refund->get_meta( '_checkout_refund_reason' );
+
+				$refund->set_amount( $amount );
+				$refund->set_reason( $reason );
+
+				$order->add_order_note(
+					__( 'Refund process completed.', 'paytrail-for-woocommerce' )
+				);
+
+				$refund->update_meta_data( '_checkout_refund_processing', '' );
+				$refund->save();
+				break;
+			case 'cancel':
+				$refund->delete( true );
+
+				$order_note = __(
+					'Refund was cancelled by the payment provider.',
+					'paytrail-for-woocommerce'
+				);
+
+				$order->add_order_note( $order_note );
+
+				/**
+				 * Delete refund action
+				 *
+				 * @since 1.0
+				 */
+				do_action( 'woocommerce_refund_delete', $refund->get_id(), $order->get_id() );
+				break;
+		}
+
+		if ( $this->deferred_processing ) {
+			return;
+		}
+
+		die( 'ok' );
+	}
+
+	/**
+	 * Find a refund by the unique id the plugin added to its callback URLs.
+	 *
+	 * @param string $refund_unique_id Unique ID for the refund.
+	 * @return \WC_Order_Refund|null
+	 */
+	protected function get_refund_by_unique_id( $refund_unique_id ) {
+		if ( empty( $refund_unique_id ) ) {
+			return null;
 		}
 
 		// Check if HPOS is enabled.
@@ -1472,60 +1597,58 @@ final class Gateway extends \WC_Payment_Gateway {
 			);
 		}
 
-		if ( empty( $refunds ) ) {
-			$this->log( 'Paytrail: handle_refund_response, refund not found for unique id ' . $refund_unique_id, 'error' );
+		return empty( $refunds ) ? null : $refunds[0];
+	}
 
-			if ( $this->deferred_processing ) {
-				return;
-			}
+	/**
+	 * Whether a signed refund callback transaction id belongs to this refund.
+	 *
+	 * @param \WC_Order_Refund $refund                The refund the callback names.
+	 * @param WC_Order         $order                 The order the refund belongs to.
+	 * @param string           $signed_transaction_id The signed checkout-transaction-id.
+	 * @return bool
+	 */
+	protected function refund_matches_transaction( $refund, $order, $signed_transaction_id ) {
+		$expected = (string) $refund->get_meta( '_checkout_refund_transaction_id' );
 
-			wp_die( esc_html__( 'Refund cannot be found.', 'paytrail-for-woocommerce' ), '', 404 );
+		if ( '' === $expected ) {
+			$expected = (string) $order->get_transaction_id();
 		}
 
-		$refund = $refunds[0];
+		return '' !== $expected && hash_equals( $expected, $signed_transaction_id );
+	}
 
-		switch ( $refund_callback ) {
-			case 'success':
-				$amount = $refund->get_meta( '_checkout_refund_amount' );
-				$reason = $refund->get_meta( '_checkout_refund_reason' );
-
-				$refund->set_amount( $amount );
-				$refund->set_reason( $reason );
-
-				$order = \wc_get_order( $order_id );
-
-				$order->add_order_note(
-					__( 'Refund process completed.', 'paytrail-for-woocommerce' )
-				);
-
-				$refund->update_meta_data( '_checkout_refund_processing', false );
-				$refund->save();
-				break;
-			case 'cancel':
-				$refund->delete( true );
-
-				$order_note = __(
-					'Refund was cancelled by the payment provider.',
-					'paytrail-for-woocommerce'
-				);
-
-				$order = \wc_get_order( $order_id );
-				$order->add_order_note( $order_note );
-
-				/**
-				 * Delete refund action
-				 *
-				 * @since 1.0
-				 */
-				do_action( 'woocommerce_refund_delete', $refund->get_id(), $order_id );
-				break;
-		}
+	/**
+	 * Log a refused refund callback and end the request, unless it is being processed from the queue.
+	 *
+	 * @param string $log_message The message to log.
+	 * @param string $message     The message to show.
+	 * @param int    $status      The HTTP status code.
+	 * @return void
+	 */
+	protected function refuse_refund_callback( $log_message, $message, $status ) {
+		$this->log( $log_message, 'error' );
 
 		if ( $this->deferred_processing ) {
 			return;
 		}
 
-		die( 'ok' );
+		wp_die( esc_html( $message ), '', absint( $status ) );
+	}
+
+	/**
+	 * Read the transaction id Paytrail assigned to a refund.
+	 *
+	 * @param RefundResponse $response The refund response.
+	 * @return string The transaction id, or an empty string when Paytrail did not return one.
+	 */
+	protected function get_refund_transaction_id( $response ) {
+		try {
+			return (string) $response->getTransactionId();
+		} catch ( \TypeError $exception ) {
+			// The SDK types the getter as a string but leaves the property null when it is missing.
+			return '';
+		}
 	}
 
 	/**
@@ -2184,7 +2307,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					$refund_object = wc_get_order( $refund_id );
 
 					try {
-						$this->client->refund( $refund, $transaction_id );
+						$response = $this->client->refund( $refund, $transaction_id );
 					} catch ( \Exception $e ) {
 						switch ( $e->getCode() ) {
 							case 422:
@@ -2202,7 +2325,7 @@ final class Gateway extends \WC_Payment_Gateway {
 								}
 
 								try {
-									$this->client->emailRefund( $email_refund_request, $transaction_id );
+									$response = $this->client->emailRefund( $email_refund_request, $transaction_id );
 								} catch ( \Exception $e ) {
 									switch ( $e->getCode() ) {
 										case 422:
@@ -2249,6 +2372,12 @@ final class Gateway extends \WC_Payment_Gateway {
 					$refund_object->update_meta_data( '_checkout_refund_reason', $reason );
 					$refund_object->update_meta_data( '_checkout_refund_unique_id', $refund_unique_id );
 					$refund_object->update_meta_data( '_checkout_refund_processing', true );
+
+					// The refund callback is signed over this id, which ties the callback to this refund.
+					$refund_transaction_id = $this->get_refund_transaction_id( $response );
+					if ( $refund_transaction_id ) {
+						$refund_object->update_meta_data( '_checkout_refund_transaction_id', $refund_transaction_id );
+					}
 
 					$refund_object->set_amount( '0' );
 					$refund_object->set_reason( $reason . ' Refund is still being processed. The status and the amount (' . $price . ') of the refund will update when the processing is completed.' );
