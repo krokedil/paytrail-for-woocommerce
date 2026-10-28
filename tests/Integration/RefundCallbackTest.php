@@ -45,15 +45,17 @@ class RefundCallbackTest extends IntegrationTestCase {
 		$this->assertOrderHasNote( $order, 'Refund was cancelled by the payment provider.' );
 	}
 
-	/** The refund created before its transaction id was stored is matched on the order's transaction. */
-	public function test_an_older_refund_is_matched_on_the_order_transaction(): void {
+	/** Every signed payment callback for the order carries its transaction, so it proves nothing about a refund. */
+	public function test_a_refund_without_its_own_transaction_is_not_settled_on_the_order_transaction(): void {
 		$refund = $this->havePendingRefund();
 		$refund->delete_meta_data( '_checkout_refund_transaction_id' );
 		$refund->save();
 
 		$this->receiveRefundCallback( $refund, 'success', [ 'checkout-transaction-id' => 'paytrail-transaction-1' ] );
 
-		$this->assertEmpty( $this->reload( $refund )->get_meta( '_checkout_refund_processing' ) );
+		$refund = $this->reload( $refund );
+		$this->assertSame( '1', $refund->get_meta( '_checkout_refund_processing' ) );
+		$this->assertSame( '0', $refund->get_amount() );
 	}
 
 	/**

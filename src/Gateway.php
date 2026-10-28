@@ -1467,7 +1467,7 @@ final class Gateway extends \WC_Payment_Gateway {
 		// The order comes from the refund, never from the unsigned order_id.
 		$order = \wc_get_order( $refund->get_parent_id() );
 
-		if ( ! $order || ! $this->refund_matches_transaction( $refund, $order, $signed_transaction_id ) ) {
+		if ( ! $order || ! $this->refund_matches_transaction( $refund, $signed_transaction_id ) ) {
 			$this->refuse_refund_callback(
 				sprintf(
 					'Paytrail: handle_refund_response, refund %1$d does not match transaction %2$s (order_id in request: %3$s)',
@@ -1604,16 +1604,11 @@ final class Gateway extends \WC_Payment_Gateway {
 	 * Whether a signed refund callback transaction id belongs to this refund.
 	 *
 	 * @param \WC_Order_Refund $refund                The refund the callback names.
-	 * @param WC_Order         $order                 The order the refund belongs to.
 	 * @param string           $signed_transaction_id The signed checkout-transaction-id.
 	 * @return bool
 	 */
-	protected function refund_matches_transaction( $refund, $order, $signed_transaction_id ) {
+	protected function refund_matches_transaction( $refund, $signed_transaction_id ) {
 		$expected = (string) $refund->get_meta( '_checkout_refund_transaction_id' );
-
-		if ( '' === $expected ) {
-			$expected = (string) $order->get_transaction_id();
-		}
 
 		return '' !== $expected && hash_equals( $expected, $signed_transaction_id );
 	}
