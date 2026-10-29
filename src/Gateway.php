@@ -811,12 +811,11 @@ final class Gateway extends \WC_Payment_Gateway {
 		$state   = sanitize_key( $state );
 		$owner   = $state ? get_transient( self::ADD_CARD_STATE_PREFIX . $state ) : false;
 
-		if ( ! $user_id || false === $owner || absint( $owner ) !== $user_id ) {
+		if ( ! $user_id || false === $owner || absint( $owner ) !== $user_id
+			|| ! delete_transient( self::ADD_CARD_STATE_PREFIX . $state ) ) {
 			$this->log( 'Paytrail: process_card_token, the add-card return does not belong to customer ' . $user_id . ', refusing to save the card', 'error' );
 			throw new ValidationException( 'The card could not be tied to the customer who added it.' );
 		}
-
-		delete_transient( self::ADD_CARD_STATE_PREFIX . $state );
 	}
 
 	/**
