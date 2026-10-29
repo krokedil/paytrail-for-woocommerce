@@ -35,7 +35,7 @@
     "require": {
         "php": ">=7.4",
         "ext-mbstring": "*",
-        "paytrail/paytrail-php-sdk": "dev-klarna-express-checkout"
+        "paytrail/paytrail-php-sdk": "^2.9.0"
     },
     "config": {
         "process-timeout": 0,
@@ -63,10 +63,6 @@
         "szepeviktor/phpstan-wordpress": "^2.0.3"
     },
     "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:krokedil/paytrail-php-sdk.git"
-        },
         {
             "type": "composer",
             "url": "https://wpackagist.org",
