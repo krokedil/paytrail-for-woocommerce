@@ -1455,28 +1455,13 @@ final class Gateway extends \WC_Payment_Gateway {
 
 		$refund = $this->get_refund_by_unique_id( $refund_unique_id );
 
-		if ( ! $refund ) {
+		$order = $refund ? \wc_get_order( $refund->get_parent_id() ) : null;
+
+		if ( ! $refund || ! $order ) {
 			$this->refuse_refund_callback(
 				'Paytrail: handle_refund_response, refund not found for unique id ' . $refund_unique_id,
 				__( 'Refund cannot be found.', 'paytrail-for-woocommerce' ),
 				404
-			);
-			return;
-		}
-
-		// The order comes from the refund, never from the unsigned order_id.
-		$order = \wc_get_order( $refund->get_parent_id() );
-
-		if ( ! $order || ! $this->refund_matches_transaction( $refund, $signed_transaction_id ) ) {
-			$this->refuse_refund_callback(
-				sprintf(
-					'Paytrail: handle_refund_response, refund %1$d does not match transaction %2$s (order_id in request: %3$s)',
-					$refund->get_id(),
-					$signed_transaction_id,
-					$order_id
-				),
-				__( 'Refund callback does not match the order.', 'paytrail-for-woocommerce' ),
-				409
 			);
 			return;
 		}
@@ -1489,6 +1474,27 @@ final class Gateway extends \WC_Payment_Gateway {
 			}
 
 			die( 'ok' );
+		}
+
+		$match = $this->refund_matches_transaction( $refund, $signed_transaction_id );
+
+		if ( true !== $match ) {
+			// Refunds started before the update have nothing to compare with, so the merchant has to check by hand.
+			if ( 'unverifiable' === $match ) {
+				$this->note_unverified_refund( $refund, $order );
+			}
+
+			$this->refuse_refund_callback(
+				sprintf(
+					'Paytrail: handle_refund_response, refund %1$d does not match transaction %2$s (order_id in request: %3$s)',
+					$refund->get_id(),
+					$signed_transaction_id,
+					$order_id
+				),
+				__( 'Refund callback does not match the order.', 'paytrail-for-woocommerce' ),
+				409
+			);
+			return;
 		}
 
 		$signed_status   = (string) ( $params['checkout-status'] ?? '' );
@@ -1605,12 +1611,41 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param \WC_Order_Refund $refund                The refund the callback names.
 	 * @param string           $signed_transaction_id The signed checkout-transaction-id.
-	 * @return bool
+	 * @return true|string True on a match, 'unverifiable' when the refund has no transaction id, 'mismatch' otherwise.
 	 */
 	protected function refund_matches_transaction( $refund, $signed_transaction_id ) {
 		$expected = (string) $refund->get_meta( '_checkout_refund_transaction_id' );
 
-		return '' !== $expected && hash_equals( $expected, $signed_transaction_id );
+		// Refunds started before the transaction id was stored.
+		if ( '' === $expected ) {
+			return 'unverifiable';
+		}
+
+		return hash_equals( $expected, $signed_transaction_id ) ? true : 'mismatch';
+	}
+
+	/**
+	 * Tell the merchant, once, that a refund callback could not be verified.
+	 *
+	 * @param \WC_Order_Refund $refund The refund the callback names.
+	 * @param WC_Order         $order  The order the refund belongs to.
+	 * @return void
+	 */
+	protected function note_unverified_refund( $refund, $order ) {
+		if ( $refund->get_meta( '_checkout_refund_unverified_noted' ) ) {
+			return;
+		}
+
+		$order->add_order_note(
+			sprintf(
+				// Translators: %d is the refund ID.
+				__( 'Paytrail sent an update for refund #%d that could not be verified, so the refund was left unchanged. Check the refund\'s status in Paytrail\'s merchant panel. If it failed, delete this refund. If it went through, delete it and record it again with "Refund manually".', 'paytrail-for-woocommerce' ),
+				$refund->get_id()
+			)
+		);
+
+		$refund->update_meta_data( '_checkout_refund_unverified_noted', '1' );
+		$refund->save();
 	}
 
 	/**

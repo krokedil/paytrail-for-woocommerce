@@ -45,6 +45,20 @@ class RefundCallbackTest extends IntegrationTestCase {
 		$this->assertOrderHasNote( $order, 'Refund was cancelled by the payment provider.' );
 	}
 
+	/** Refunds started before the update have no transaction id of their own to compare with. */
+	public function test_a_refund_started_before_the_update_tells_the_merchant_once(): void {
+		$refund = $this->havePendingRefund();
+		$refund->delete_meta_data( '_checkout_refund_transaction_id' );
+		$refund->save();
+
+		$this->receiveRefundCallback( $refund, 'success' );
+		$this->receiveRefundCallback( $refund, 'success' );
+
+		$this->assertStillProcessing( $refund );
+		$notes = wc_get_order_notes( [ 'order_id' => $refund->get_parent_id() ] );
+		$this->assertCount( 1, array_filter( $notes, fn( $note ) => false !== strpos( $note->content, 'could not be verified' ) ) );
+	}
+
 	/** Every signed payment callback for the order carries its transaction, so it proves nothing about a refund. */
 	public function test_a_refund_without_its_own_transaction_is_not_settled_on_the_order_transaction(): void {
 		$refund = $this->havePendingRefund();
@@ -66,10 +80,15 @@ class RefundCallbackTest extends IntegrationTestCase {
 
 		$this->receiveRefundCallback( $refund, $refund_callback, $signed );
 
-		$refund = $this->reload( $refund );
-		$this->assertNotFalse( $refund, 'The refund should not have been deleted' );
-		$this->assertSame( '1', $refund->get_meta( '_checkout_refund_processing' ) );
-		$this->assertSame( '0', $refund->get_amount() );
+		$this->assertStillProcessing( $refund );
+	}
+
+	public function test_a_callback_for_another_transaction_does_not_add_a_note(): void {
+		$refund = $this->havePendingRefund();
+
+		$this->receiveRefundCallback( $refund, 'success', [ 'checkout-transaction-id' => 'another-customers-payment' ] );
+
+		$this->assertOrderHasNoNote( $this->orderOf( $refund ), 'could not be verified' );
 	}
 
 	/** @return array<string, array{string, array<string, string>}> */
@@ -165,6 +184,13 @@ class RefundCallbackTest extends IntegrationTestCase {
 		$secret_key->setAccessible( true );
 
 		return (string) $secret_key->getValue( $this->gateway()->get_client() );
+	}
+
+	private function assertStillProcessing( \WC_Order_Refund $refund ): void {
+		$refund = $this->reload( $refund );
+		$this->assertNotFalse( $refund, 'The refund should not have been deleted' );
+		$this->assertSame( '1', $refund->get_meta( '_checkout_refund_processing' ) );
+		$this->assertSame( '0', $refund->get_amount() );
 	}
 
 	private function orderOf( \WC_Order_Refund $refund ): \WC_Order {
