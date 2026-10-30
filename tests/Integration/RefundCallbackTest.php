@@ -24,6 +24,12 @@ class RefundCallbackTest extends IntegrationTestCase {
 		$this->assertSame( 'paytrail-refund-1', $refund->get_meta( '_checkout_refund_transaction_id' ) );
 	}
 
+	public function test_the_refund_records_the_stamp_it_was_sent_with(): void {
+		$refund = $this->havePendingRefund();
+
+		$this->assertSame( $refund->get_meta( '_checkout_refund_unique_id' ), $refund->get_meta( '_checkout_refund_stamp' ) );
+	}
+
 	public function test_a_successful_refund_callback_settles_the_refund(): void {
 		$refund = $this->havePendingRefund();
 
@@ -43,6 +49,30 @@ class RefundCallbackTest extends IntegrationTestCase {
 
 		$this->assertSame( [], $this->reload( $order )->get_refunds() );
 		$this->assertOrderHasNote( $order, 'Refund was cancelled by the payment provider.' );
+	}
+
+	/** A refund that fails Paytrail's validation calls back without a transaction id, so its signed stamp is what binds it. */
+	public function test_a_failed_refund_callback_without_a_transaction_removes_the_refund(): void {
+		$refund = $this->havePendingRefund();
+		$order  = $this->orderOf( $refund );
+
+		$this->receiveRefundCallback( $refund, 'cancel', [ 'checkout-transaction-id' => '', 'checkout-status' => 'fail' ] );
+
+		$this->assertSame( [], $this->reload( $order )->get_refunds() );
+		$this->assertOrderHasNote( $order, 'Refund was cancelled by the payment provider.' );
+	}
+
+	public function test_a_failed_refund_callback_with_another_stamp_only_tells_the_merchant(): void {
+		$refund = $this->havePendingRefund();
+
+		$this->receiveRefundCallback(
+			$refund,
+			'cancel',
+			[ 'checkout-transaction-id' => '', 'checkout-status' => 'fail', 'checkout-stamp' => 'another-refund' ]
+		);
+
+		$this->assertStillProcessing( $refund );
+		$this->assertOrderHasNote( $this->orderOf( $refund ), 'could not be verified' );
 	}
 
 	/** Refunds started before the update have no transaction id of their own to compare with. */
@@ -157,7 +187,7 @@ class RefundCallbackTest extends IntegrationTestCase {
 				'checkout-account'        => '375917',
 				'checkout-algorithm'      => 'sha256',
 				'checkout-amount'         => '2550',
-				'checkout-stamp'          => 'refund-stamp',
+				'checkout-stamp'          => (string) $refund->get_meta( '_checkout_refund_stamp' ),
 				'checkout-reference'      => (string) $refund->get_parent_id(),
 				'checkout-transaction-id' => 'paytrail-refund-1',
 				'checkout-status'         => 'ok',

@@ -1442,17 +1442,6 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->signature_error( $exception, ! $this->deferred_processing );
 		}
 
-		$signed_transaction_id = (string) ( $params['checkout-transaction-id'] ?? '' );
-
-		if ( '' === $signed_transaction_id ) {
-			$this->refuse_refund_callback(
-				'Paytrail: handle_refund_response, no signed transaction id for refund ' . $refund_unique_id,
-				__( 'Invalid refund callback.', 'paytrail-for-woocommerce' ),
-				400
-			);
-			return;
-		}
-
 		$refund = $this->get_refund_by_unique_id( $refund_unique_id );
 
 		$order = $refund ? \wc_get_order( $refund->get_parent_id() ) : null;
@@ -1476,10 +1465,10 @@ final class Gateway extends \WC_Payment_Gateway {
 			die( 'ok' );
 		}
 
-		$match = $this->refund_matches_transaction( $refund, $signed_transaction_id );
+		$match = $this->refund_matches_callback( $refund, $params );
 
 		if ( true !== $match ) {
-			// Refunds started before the update have nothing to compare with, so the merchant has to check by hand.
+			// A value the binding needs is missing, so the merchant has to check the refund by hand.
 			if ( 'unverifiable' === $match ) {
 				$this->note_unverified_refund( $refund, $order );
 			}
@@ -1488,7 +1477,7 @@ final class Gateway extends \WC_Payment_Gateway {
 				sprintf(
 					'Paytrail: handle_refund_response, refund %1$d does not match transaction %2$s (order_id in request: %3$s)',
 					$refund->get_id(),
-					$signed_transaction_id,
+					(string) ( $params['checkout-transaction-id'] ?? '' ),
 					$order_id
 				),
 				__( 'Refund callback does not match the order.', 'paytrail-for-woocommerce' ),
@@ -1607,13 +1596,26 @@ final class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
-	 * Whether a signed refund callback transaction id belongs to this refund.
+	 * Whether a signed refund callback belongs to this refund.
 	 *
-	 * @param \WC_Order_Refund $refund                The refund the callback names.
-	 * @param string           $signed_transaction_id The signed checkout-transaction-id.
-	 * @return true|string True on a match, 'unverifiable' when the refund has no transaction id, 'mismatch' otherwise.
+	 * @param \WC_Order_Refund $refund The refund the callback names.
+	 * @param array            $params The callback parameters, already HMAC validated.
+	 * @return true|string True on a match, 'unverifiable' when a value to compare is missing, 'mismatch' otherwise.
 	 */
-	protected function refund_matches_transaction( $refund, $signed_transaction_id ) {
+	protected function refund_matches_callback( $refund, $params ) {
+		$signed_transaction_id = (string) ( $params['checkout-transaction-id'] ?? '' );
+
+		if ( '' === $signed_transaction_id ) {
+			$expected_stamp = (string) $refund->get_meta( '_checkout_refund_stamp' );
+			$signed_stamp   = (string) ( $params['checkout-stamp'] ?? '' );
+
+			if ( 'fail' === ( $params['checkout-status'] ?? '' ) && '' !== $expected_stamp && hash_equals( $expected_stamp, $signed_stamp ) ) {
+				return true;
+			}
+
+			return 'unverifiable';
+		}
+
 		$expected = (string) $refund->get_meta( '_checkout_refund_transaction_id' );
 
 		// Refunds started before the transaction id was stored.
@@ -2275,6 +2277,8 @@ final class Gateway extends \WC_Payment_Gateway {
 
 			$refund = new RefundRequest();
 
+			$refund->setRefundStamp( $refund_unique_id );
+
 			if ( $amount ) {
 				$refund->setAmount( $this->helper->handle_currency( $amount ) );
 			} else {
@@ -2347,6 +2351,7 @@ final class Gateway extends \WC_Payment_Gateway {
 								$email_refund_request = new EmailRefundRequest();
 
 								$email_refund_request->setEmail( $email );
+								$email_refund_request->setRefundStamp( $refund->getRefundStamp() );
 								$email_refund_request->setAmount( $refund->getAmount() );
 								$email_refund_request->setCallbackUrls( $refund->getCallbackUrls() );
 
@@ -2402,6 +2407,7 @@ final class Gateway extends \WC_Payment_Gateway {
 					$refund_object->update_meta_data( '_checkout_refund_reason', $reason );
 					$refund_object->update_meta_data( '_checkout_refund_unique_id', $refund_unique_id );
 					$refund_object->update_meta_data( '_checkout_refund_processing', true );
+					$refund_object->update_meta_data( '_checkout_refund_stamp', $refund->getRefundStamp() );
 
 					// The refund callback is signed over this id, which ties the callback to this refund.
 					$refund_transaction_id = $this->get_refund_transaction_id( $response );
