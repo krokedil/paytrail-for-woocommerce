@@ -177,6 +177,16 @@ final class Gateway extends \WC_Payment_Gateway {
 	const CALLBACK_ACTION_DELAY = 120;
 
 	/**
+	 * Transient prefix tying an add-card return to the customer who started it.
+	 */
+	const ADD_CARD_STATE_PREFIX = 'paytrail_add_card_';
+
+	/**
+	 * Seconds a customer has to finish adding a card before the return is refused.
+	 */
+	const ADD_CARD_STATE_TTL = 1800;
+
+	/**
 	 * Object constructor
 	 */
 	public function __construct() {
@@ -719,10 +729,16 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param string $context The context the card is being added from.
 	 * @return void
-	 * @throws HmacException If the response signature does not validate.
-	 * @throws ValidationException If the request is rejected by the API.
+	 * @throws ValidationException If no customer is signed in or the API rejects the request. The SDK can also throw HmacException.
 	 */
 	public function add_card_form( $context = Plugin::ADD_CARD_CONTEXT_CHECKOUT ) {
+		$user_id = get_current_user_id();
+
+		if ( ! $user_id ) {
+			$this->log( 'Paytrail: add_card_form, refusing to add a card without a signed-in customer', 'error' );
+			throw new ValidationException( 'A card can only be added by a signed-in customer.' );
+		}
+
 		$datetime       = new \DateTime();
 		$checkout_nonce = wp_generate_uuid4();
 
@@ -749,6 +765,10 @@ final class Gateway extends \WC_Payment_Gateway {
 			$success_url = Router::get_url( Plugin::ADD_CARD_REDIRECT_SUCCESS_URL, Plugin::ADD_CARD_CONTEXT_CHECKOUT );
 			$cancel_url  = Router::get_url( Plugin::ADD_CARD_REDIRECT_CANCEL_URL, Plugin::ADD_CARD_CONTEXT_CHECKOUT );
 		}
+
+		set_transient( self::ADD_CARD_STATE_PREFIX . $checkout_nonce, $user_id, self::ADD_CARD_STATE_TTL );
+		$success_url = add_query_arg( 'paytrail_state', $checkout_nonce, $success_url );
+
 		$this->log( 'Paytrail: try to add new card', 'debug' );
 
 		$add_card_form_request = new AddCardFormRequest();
@@ -775,18 +795,42 @@ final class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Process card token
 	 *
+	 * @param array|null $params The add-card return query parameters. Defaults to the current request.
 	 * @return int The saved token ID, or 0 when saving failed.
 	 * @throws HmacException If the response signature does not validate.
-	 * @throws ValidationException If the request is rejected by the API.
+	 * @throws ValidationException If the return does not belong to the current customer, or the request is rejected by the API.
 	 */
-	public function process_card_token() {
+	public function process_card_token( $params = null ) {
+		$params = null === $params ? $this->get_response_params() : (array) $params;
+
+		$this->verify_add_card_state( (string) ( $params['paytrail_state'] ?? '' ) );
+
 		$get_token_request = new GetTokenRequest();
-		$get_token_request->setCheckoutTokenizationId( filter_input( INPUT_GET, 'checkout-tokenization-id' ) );
+		$get_token_request->setCheckoutTokenizationId( (string) ( $params['checkout-tokenization-id'] ?? '' ) );
 		$this->log( 'Paytrail: process_card_token', 'debug' );
 
 		$response = $this->client->createGetTokenRequest( $get_token_request );
 
 		return $this->save_card_token( $response );
+	}
+
+	/**
+	 * Check that an add-card return belongs to the signed-in customer who started it.
+	 *
+	 * @param string $state The paytrail_state query arg from the return URL.
+	 * @return void
+	 * @throws ValidationException If the state is missing, expired or belongs to someone else.
+	 */
+	protected function verify_add_card_state( $state ) {
+		$user_id = get_current_user_id();
+		$state   = sanitize_key( $state );
+		$owner   = $state ? get_transient( self::ADD_CARD_STATE_PREFIX . $state ) : false;
+
+		if ( ! $user_id || false === $owner || absint( $owner ) !== $user_id
+			|| ! delete_transient( self::ADD_CARD_STATE_PREFIX . $state ) ) {
+			$this->log( 'Paytrail: process_card_token, the add-card return does not belong to customer ' . $user_id . ', refusing to save the card', 'error' );
+			throw new ValidationException( 'The card could not be tied to the customer who added it.' );
+		}
 	}
 
 	/**
