@@ -724,7 +724,7 @@ final class Gateway extends \WC_Payment_Gateway {
 	 */
 	public function add_card_form( $context = Plugin::ADD_CARD_CONTEXT_CHECKOUT ) {
 		$datetime       = new \DateTime();
-		$checkout_nonce = sha1( uniqid( true ) );
+		$checkout_nonce = wp_generate_uuid4();
 
 		if ( Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT === $context ) {
 			$success_url = Router::get_url( Plugin::ADD_CARD_REDIRECT_SUCCESS_URL, Plugin::ADD_CARD_CONTEXT_MY_ACCOUNT );
@@ -2255,7 +2255,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			$order = \wc_get_order( $order_id );
 
 			// Create a unique identifier for the refund.
-			$refund_unique_id = sha1( uniqid( true ) );
+			$refund_unique_id = bin2hex( random_bytes( 16 ) );
 
 			$refund = new RefundRequest();
 
