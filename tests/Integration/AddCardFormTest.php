@@ -17,6 +17,7 @@ class AddCardFormTest extends IntegrationTestCase {
 
 	/** Paytrail documents a UUID for the nonce, and it has to be random rather than taken from the clock. */
 	public function test_the_add_card_request_carries_a_uuid_nonce(): void {
+		$this->haveSignedInCustomer();
 		$this->willOpenAddCardForm();
 
 		$this->gateway()->add_card_form();
@@ -28,6 +29,7 @@ class AddCardFormTest extends IntegrationTestCase {
 	}
 
 	public function test_each_add_card_request_gets_its_own_nonce(): void {
+		$this->haveSignedInCustomer();
 		$this->willOpenAddCardForm();
 		$this->willOpenAddCardForm();
 
