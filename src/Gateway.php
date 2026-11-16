@@ -2178,7 +2178,9 @@ final class Gateway extends \WC_Payment_Gateway {
 			array(
 				'content_type' => 'vnd.klarna.network-data.v2+json',
 				'content'      => array(
-					'payment_request' => array(
+					// Klarna silently drops network data that lacks the operation or is not nested under request.
+					'operation' => 'payment_request',
+					'request'   => array(
 						'supplementary_purchase_data' => $purchase_data,
 					),
 				),

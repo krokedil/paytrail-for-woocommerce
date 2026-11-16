@@ -40,7 +40,8 @@ class KlarnaExpressTest extends IntegrationTestCase {
 			[
 				'content_type' => 'vnd.klarna.network-data.v2+json',
 				'content'      => [
-					'payment_request' => [
+					'operation' => 'payment_request',
+					'request'   => [
 						'supplementary_purchase_data' => [
 							'line_items' => [
 								[
