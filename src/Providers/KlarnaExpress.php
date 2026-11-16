@@ -38,6 +38,6 @@ class KlarnaExpress implements AcquiringPartnerIntegration {
 			return $order->get_checkout_order_received_url();
 		}
 
-		return Plugin::instance()->gateway()->process_klarna_express_payment( $order, $interoperability_token );
+		return Plugin::instance()->gateway()->process_klarna_express_payment( $order, $interoperability_token, $interoperability_data );
 	}
 }

@@ -27,6 +27,61 @@ class KlarnaExpressTest extends IntegrationTestCase {
 		$this->assertPaymentMatchesSnapshot( $this->apiRequestTo( '/payments/klarna/charge' ), 'klarna-express-fi', $order );
 	}
 
+	/** The order lines Klarna Payments hands over reach Klarna as network data, with empty values left out. */
+	public function test_the_order_lines_are_sent_as_klarna_network_data(): void {
+		$order = $this->haveExpressOrder();
+
+		$this->willPayWithKlarna();
+		$this->gateway()->process_klarna_express_payment( $order, self::SESSION_TOKEN, $this->interoperabilityData() );
+
+		$network_data = $this->apiRequestTo( '/payments/klarna/charge' )['json']['providerDetails']['klarna']['networkData'];
+
+		$this->assertSame(
+			[
+				'content_type' => 'vnd.klarna.network-data.v2+json',
+				'content'      => [
+					'payment_request' => [
+						'supplementary_purchase_data' => [
+							'line_items' => [
+								[
+									'name'               => 'Sauna bucket',
+									'quantity'           => 1,
+									'total_amount'       => 12550,
+									'unit_price'         => 12550,
+									'total_tax_amount'   => 0,
+									'reference'          => 'sauna-bucket',
+									'shipping_reference' => 'flat_rate:1',
+								],
+							],
+							'shipping'   => [
+								[
+									'shipping_reference' => 'flat_rate:1',
+									'recipient'          => [ 'given_name' => 'Matti' ],
+									'address'            => [ 'country' => 'FI' ],
+								],
+							],
+						],
+					],
+				],
+			],
+			json_decode( $network_data, true )
+		);
+	}
+
+	/** Paytrail rejects a payment whose network data is too long, so it is left out rather than failing the order. */
+	public function test_network_data_over_the_limit_is_left_out(): void {
+		$order = $this->haveExpressOrder();
+		$data  = $this->interoperabilityData();
+
+		$data['line_items'][0]['name'] = str_repeat( 'a', 10300 );
+
+		$this->willPayWithKlarna();
+		$this->gateway()->process_klarna_express_payment( $order, self::SESSION_TOKEN, $data );
+
+		$this->assertArrayNotHasKey( 'networkData', $this->apiRequestTo( '/payments/klarna/charge' )['json']['providerDetails']['klarna'] );
+		$this->assertNotEmpty( $this->reload( $order )->get_date_paid() );
+	}
+
 	/**
 	 * Manual invoice activation decides whether the order is charged now or held for
 	 * capture when it is completed.
@@ -154,6 +209,34 @@ class KlarnaExpressTest extends IntegrationTestCase {
 				'created_via' => 'klarna_express_checkout',
 			]
 		);
+	}
+
+	/** The shape Klarna Payments builds the interoperability data in, including the empty values it can leave. */
+	private function interoperabilityData(): array {
+		return [
+			'line_items' => [
+				[
+					'name'               => 'Sauna bucket',
+					'quantity'           => 1,
+					'total_amount'       => 12550,
+					'unit_price'         => 12550,
+					'total_tax_amount'   => 0,
+					'product_url'        => '',
+					'image_url'          => null,
+					'product_identifier' => [],
+					'reference'          => 'sauna-bucket',
+					'shipping_reference' => 'flat_rate:1',
+				],
+			],
+			'shipping'   => [
+				'shipping_reference' => 'flat_rate:1',
+				'recipient'          => [
+					'given_name' => 'Matti',
+					'email'      => '',
+				],
+				'address'            => [ 'country' => 'FI' ],
+			],
+		];
 	}
 
 	/** An express order paid with an authorization hold, with the request that made it forgotten. */
