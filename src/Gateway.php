@@ -2031,10 +2031,11 @@ final class Gateway extends \WC_Payment_Gateway {
 	 *
 	 * @param WC_Order $order                 The order created by Klarna Express Checkout.
 	 * @param string   $network_session_token The Klarna network session token.
+	 * @param array    $interoperability_data The order lines and shipping from Klarna Payments, sent on as Klarna network data.
 	 * @return string The URL to redirect the customer to.
 	 * @throws \Exception If an earlier payment for the order is still in progress.
 	 */
-	public function process_klarna_express_payment( WC_Order $order, string $network_session_token ) {
+	public function process_klarna_express_payment( WC_Order $order, string $network_session_token, array $interoperability_data = array() ) {
 		$this->log( 'Paytrail: process_klarna_express_payment, order ' . $order->get_id(), 'debug' );
 
 		// Klarna resends the notification on errors and timeouts, never create a second payment for the order.
@@ -2063,7 +2064,9 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->set_base_payment_data( $payment, $order );
 			$payment->setProviderDetails(
 				( new ProviderDetails() )->setKlarna(
-					( new KlarnaProviderDetails() )->setNetworkSessionToken( $network_session_token )
+					( new KlarnaProviderDetails() )
+						->setNetworkSessionToken( $network_session_token )
+						->setNetworkData( $this->get_klarna_network_data( $interoperability_data ) )
 				)
 			);
 
@@ -2151,6 +2154,70 @@ final class Gateway extends \WC_Payment_Gateway {
 		}
 
 		return $redirect_url;
+	}
+
+	/**
+	 * Wrap the order lines and shipping from Klarna Payments in the Klarna network data schema.
+	 *
+	 * @param array $interoperability_data The order lines and shipping from Klarna Payments.
+	 * @return string|null Serialized JSON, or null when there is nothing to send.
+	 */
+	private function get_klarna_network_data( array $interoperability_data ) {
+		$purchase_data = array(
+			'line_items' => $interoperability_data['line_items'] ?? array(),
+			// The schema takes a list of shipments, Klarna Payments builds a single one.
+			'shipping'   => empty( $interoperability_data['shipping'] ) ? array() : array( $interoperability_data['shipping'] ),
+		);
+		$purchase_data = $this->remove_empty_values( $purchase_data );
+
+		if ( empty( $purchase_data ) ) {
+			return null;
+		}
+
+		$network_data = wp_json_encode(
+			array(
+				'content_type' => 'vnd.klarna.network-data.v2+json',
+				'content'      => array(
+					// Klarna silently drops network data that lacks the operation or is not nested under request.
+					'operation' => 'payment_request',
+					'request'   => array(
+						'supplementary_purchase_data' => $purchase_data,
+					),
+				),
+			),
+			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+		);
+
+		// Paytrail rejects the whole payment if networkData is over its length limit, so leave it out instead.
+		if ( false === $network_data || mb_strlen( $network_data ) > 10240 ) {
+			$this->log( 'Paytrail: Klarna network data left out, it is over the 10240 character limit.', 'info' );
+			return null;
+		}
+
+		return $network_data;
+	}
+
+	/**
+	 * Remove null, empty string and empty array values, which Klarna's schema does not accept.
+	 *
+	 * @param array $data The data to clean.
+	 * @return array
+	 */
+	private function remove_empty_values( array $data ) {
+		$is_list = array_values( $data ) === $data;
+
+		foreach ( $data as $key => $value ) {
+			if ( is_array( $value ) ) {
+				$value        = $this->remove_empty_values( $value );
+				$data[ $key ] = $value;
+			}
+
+			if ( null === $value || '' === $value || array() === $value ) {
+				unset( $data[ $key ] );
+			}
+		}
+
+		return $is_list ? array_values( $data ) : $data;
 	}
 
 	/**

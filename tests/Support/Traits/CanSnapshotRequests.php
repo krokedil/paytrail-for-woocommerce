@@ -47,8 +47,9 @@ trait CanSnapshotRequests {
 			$name,
 			array_merge(
 				[
-					'<order-id>'  => $order->get_id(),
+					// The key first: it is random and can contain the order id's digits.
 					'<order-key>' => $order->get_order_key(),
+					'<order-id>'  => $order->get_id(),
 				],
 				$placeholders
 			)
