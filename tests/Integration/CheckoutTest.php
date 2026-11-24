@@ -87,6 +87,17 @@ class CheckoutTest extends IntegrationTestCase {
 		$this->assertSame( self::DEFAULT_PROVIDER, $this->reload( $order )->get_meta( '_checkout_payment_provider' ) );
 	}
 
+	/** Paytrail only holds an invoice if asked when the payment is created, so that answer is kept with the order. */
+	public function test_whether_manual_invoice_activation_was_asked_for_is_stored_on_the_order(): void {
+		$this->haveGatewaySettings( [ 'manual_invoice_activation' => 'yes' ] );
+		$order = $this->havePurchasableOrder();
+
+		$this->willCreatePayment();
+		$this->gateway()->process_paytrail_payment( $order, null, self::DEFAULT_PROVIDER, false );
+
+		$this->assertSame( 'yes', $this->reload( $order )->get_meta( '_paytrail_manual_invoice_activation' ) );
+	}
+
 	/** A free order has nothing to charge, so it completes without touching Paytrail. */
 	public function test_a_free_order_is_completed_without_a_payment(): void {
 		$order = $this->haveOrder(

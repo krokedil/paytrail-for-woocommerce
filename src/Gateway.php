@@ -2370,6 +2370,9 @@ final class Gateway extends \WC_Payment_Gateway {
 		$manual_invoice_activation = wc_string_to_bool( $this->get_option( 'manual_invoice_activation', 'no' ) );
 		$payment->setManualInvoiceActivation( $manual_invoice_activation );
 
+		// Paytrail only holds the invoice if it was asked to when the payment was created.
+		$order->update_meta_data( '_paytrail_manual_invoice_activation', wc_bool_to_string( $manual_invoice_activation ) );
+
 		return $payment;
 	}
 
