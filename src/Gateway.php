@@ -2539,6 +2539,8 @@ final class Gateway extends \WC_Payment_Gateway {
 
 			// Save it also as a key for fast indexed searches.
 			$order->update_meta_data( '_checkout_reference_' . $payment->getReference(), true );
+			// A renewal is a card charge, so order management must not treat it as a held invoice.
+			$order->update_meta_data( '_checkout_payment_provider', 'creditcard' );
 			$order->save();
 			$this->create_mit_payment( $payment, $order );
 		} catch ( \Exception $exception ) {
