@@ -7,6 +7,7 @@
 
 namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
+use Paytrail\SDK\Exception\ClientException;
 use Paytrail\SDK\Response\InvoiceActivationResponse;
 use Paytrail\SDK\Response\InvoiceCancellationResponse;
 use Paytrail\WooCommercePaymentGateway\Model;
@@ -104,9 +105,9 @@ class OrderManagement extends AbstractController {
 			$order->set_status(
 				'on-hold',
 				sprintf(
-					// Translators: %s is the error message.
-					__( 'Failed to activate manual invoice: %s', 'paytrail-for-woocommerce' ),
-					$sanitized_message
+					// Translators: %s is the reason Paytrail gave, e.g. "Signature mismatch (HTTP 401)".
+					__( 'Paytrail could not activate the invoice for this order, so the customer has not been invoiced. Reason: %s. Set the order to Completed again to retry, or activate the invoice in the Paytrail merchant panel.', 'paytrail-for-woocommerce' ),
+					$this->describe_error( $e )
 				)
 			);
 			$order->save();
@@ -190,12 +191,36 @@ class OrderManagement extends AbstractController {
 			);
 			$order->add_order_note(
 				sprintf(
-					// Translators: %s is the error message.
-					__( 'Failed to cancel Klarna invoice: %s', 'paytrail-for-woocommerce' ),
-					$sanitized_message
+					// Translators: %s is the reason Paytrail gave, e.g. "Signature mismatch (HTTP 401)".
+					__( 'Paytrail could not cancel the Klarna invoice for this order, so the customer may still be invoiced. Reason: %s. Cancel the invoice in the Paytrail merchant panel.', 'paytrail-for-woocommerce' ),
+					$this->describe_error( $e )
 				)
 			);
 		}
+	}
+
+	/**
+	 * A short reason for an order note: Paytrail's own message and HTTP code where the API
+	 * answered, otherwise the exception's message. The full error is in the debug log.
+	 *
+	 * @param \Exception $exception The exception to describe.
+	 * @return string
+	 */
+	private function describe_error( $exception ) {
+		$reason = $exception->getMessage();
+
+		if ( $exception instanceof ClientException ) {
+			// The cURL client puts the response body in the message instead of the body.
+			$body    = $exception->getResponseBody() ? $exception->getResponseBody() : $exception->getMessage();
+			$decoded = json_decode( (string) $body, true );
+			$code    = $exception->getResponseCode() ? $exception->getResponseCode() : $exception->getCode();
+
+			if ( is_array( $decoded ) && ! empty( $decoded['message'] ) && is_string( $decoded['message'] ) ) {
+				$reason = $code ? sprintf( '%s (HTTP %d)', $decoded['message'], $code ) : $decoded['message'];
+			}
+		}
+
+		return rtrim( sanitize_text_field( $reason ), '.' );
 	}
 
 	/**

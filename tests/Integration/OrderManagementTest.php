@@ -104,6 +104,7 @@ class OrderManagementTest extends IntegrationTestCase {
 		$order->update_status( 'completed' );
 
 		$this->assertSame( 'on-hold', $this->statusOf( $order ) );
+		$this->assertOrderHasNote( $order, 'Paytrail could not activate the invoice for this order, so the customer has not been invoiced. Reason: Invoice already activated (HTTP 400). Set the order to Completed again to retry, or activate the invoice in the Paytrail merchant panel.' );
 	}
 
 	/** Paytrail can refuse an activation in the body of a successful response. */
@@ -116,7 +117,7 @@ class OrderManagementTest extends IntegrationTestCase {
 		$order->update_status( 'completed' );
 
 		$this->assertSame( 'on-hold', $this->statusOf( $order ) );
-		$this->assertOrderHasNote( $order, 'Failed to activate manual invoice: Paytrail answered with status error' );
+		$this->assertOrderHasNote( $order, 'Reason: Paytrail answered with status error.' );
 	}
 
 	/** Activation is only tried on this one status change, so a lookup that fails must not hide the invoice. */
@@ -124,12 +125,12 @@ class OrderManagementTest extends IntegrationTestCase {
 		$this->haveGatewaySettings( [ 'manual_invoice_activation' => 'yes' ] );
 		$order = $this->haveInvoiceOrder();
 
-		$this->willRejectWith( '/payments/paytrail-transaction-1', 'Service unavailable', 503 );
+		$this->willRejectWith( '/payments/paytrail-transaction-1', 'Signature mismatch', 401 );
 
 		$order->update_status( 'completed' );
 
 		$this->assertSame( 'on-hold', $this->statusOf( $order ) );
-		$this->assertOrderHasNote( $order, 'Failed to activate manual invoice' );
+		$this->assertOrderHasNote( $order, 'Reason: Signature mismatch (HTTP 401).' );
 		$this->assertApiRequestCount( 0, '/activate-invoice' );
 	}
 
@@ -151,7 +152,7 @@ class OrderManagementTest extends IntegrationTestCase {
 		$order->update_status( 'completed' );
 
 		$this->assertSame( 'completed', $this->statusOf( $order ) );
-		$this->assertOrderHasNoNote( $order, 'Failed to activate manual invoice' );
+		$this->assertOrderHasNoNote( $order, 'Paytrail could not activate the invoice' );
 	}
 
 	/** @return array<string, array{0: string, 1: string, 2: ?string}> */
@@ -192,11 +193,11 @@ class OrderManagementTest extends IntegrationTestCase {
 		$this->haveGatewaySettings( [ 'manual_invoice_activation' => 'yes' ] );
 		$order = $this->haveInvoiceOrder();
 
-		$this->willRejectWith( '/payments/paytrail-transaction-1', 'Service unavailable', 503 );
+		$this->willFailToConnect( '/payments/paytrail-transaction-1', 'Connection timed out' );
 
 		$order->update_status( 'cancelled' );
 
-		$this->assertOrderHasNote( $order, 'Failed to cancel Klarna invoice' );
+		$this->assertOrderHasNote( $order, 'Paytrail could not cancel the Klarna invoice for this order, so the customer may still be invoiced. Reason: Connection timed out. Cancel the invoice in the Paytrail merchant panel.' );
 		$this->assertApiRequestCount( 0, '/cancel-order' );
 	}
 
@@ -209,7 +210,7 @@ class OrderManagementTest extends IntegrationTestCase {
 
 		$order->update_status( 'cancelled' );
 
-		$this->assertOrderHasNote( $order, 'Failed to cancel Klarna invoice: Order already captured' );
+		$this->assertOrderHasNote( $order, 'Reason: Order already captured (HTTP 400).' );
 	}
 
 	/** A paid Paytrail order sitting in processing, waiting to be shipped. */
