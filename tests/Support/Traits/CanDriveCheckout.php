@@ -129,6 +129,21 @@ trait CanDriveCheckout {
 		);
 	}
 
+	/** Queues a declined merchant-initiated charge, answered the way Paytrail reports an acquirer decline. */
+	protected function willDeclineStoredCard( string $code, string $description ): void {
+		$this->willRejectWith(
+			'/payments/token/mit/charge',
+			'Failed to create token payment.',
+			400,
+			[
+				'status'                          => 'error',
+				'message'                         => 'Failed to create token payment.',
+				'acquirerResponseCode'            => $code,
+				'acquirerResponseCodeDescription' => $description,
+			]
+		);
+	}
+
 	/** Queues the tokenisation read-back the add-card return leg makes. */
 	protected function willIssueCardToken( array $card = [], string $token = 'card-token-1' ): void {
 		$this->willRespondWith(
