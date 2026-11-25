@@ -28,6 +28,7 @@ use Paytrail\SDK\Client;
 use Paytrail\SDK\Request\EmailRefundRequest;
 use Paytrail\SDK\Response\GetTokenResponse;
 use Paytrail\SDK\Response\RefundResponse;
+use Paytrail\WooCommercePaymentGateway\Controllers\SubscriptionRetries;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentSubscriptionMigration;
 use Paytrail\WooCommercePaymentGateway\Model\PaymentTokenMigration;
 use Paytrail\WooCommercePaymentGateway\Providers\OPLasku;
@@ -2285,6 +2286,10 @@ final class Gateway extends \WC_Payment_Gateway {
 					__( 'Acquirer response code: %s.', 'paytrail-for-woocommerce' ),
 					'' !== $description ? $code . ' (' . $description . ')' : $code
 				);
+			}
+
+			if ( SubscriptionRetries::is_non_retryable_decline( $order, $code ) ) {
+				$fail_message .= ' ' . __( 'This decline must not be retried, the customer needs to add a new card.', 'paytrail-for-woocommerce' );
 			}
 
 			// Stored so retry rules can read it, and cleared when this failure has no code.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
+use Paytrail\WooCommercePaymentGateway\Plugin;
 use Tests\Support\IntegrationTestCase;
 
 /**
@@ -147,6 +148,60 @@ class SubscriptionsTest extends IntegrationTestCase {
 		$this->assertSame( '', $reloaded->get_meta( '_paytrail_acquirer_response_code' ) );
 	}
 
+	/**
+	 * Paytrail forbids retrying some declines, and the list depends on the card's acquirer.
+	 *
+	 * @covers \Paytrail\WooCommercePaymentGateway\Controllers\SubscriptionRetries::maybe_skip_retry
+	 * @dataProvider provide_declines_and_whether_they_may_be_retried
+	 */
+	public function test_a_decline_that_must_not_be_retried_gets_no_retry( string $card_type, string $code, bool $may_retry ): void {
+		$renewal = $this->haveRenewalWithCard( 'card-token-1', $card_type );
+		$rule    = new \stdClass();
+
+		$this->willDeclineStoredCard( $code, 'Declined' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+
+		$applied = apply_filters( 'wcs_get_retry_rule', $rule, 0, $renewal->get_id() );
+
+		$this->assertSame( $may_retry ? $rule : null, $applied );
+	}
+
+	/** @return array<string, array{string, string, bool}> */
+	public static function provide_declines_and_whether_they_may_be_retried(): array {
+		return [
+			'a Nets code on a visa card'          => [ 'visa', '111', false ],
+			'an Amex code on an amex card'        => [ 'amex', '181', false ],
+			'a code both acquirers refuse'        => [ 'amex', '200', false ],
+			'an Amex only code on a visa card'    => [ 'visa', '181', true ],
+			'a Nets only code on an amex card'    => [ 'amex', '111', true ],
+			'insufficient funds, which may clear' => [ 'visa', '116', true ],
+		];
+	}
+
+	/** The merchant is told on the order, since no retry will follow. */
+	public function test_a_decline_that_must_not_be_retried_says_so_on_the_order(): void {
+		$renewal = $this->haveRenewalWithCard();
+
+		$this->willDeclineStoredCard( '111', 'Card expired' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+
+		$this->assertOrderHasNote( $renewal, 'Acquirer response code: 111 (Card expired). This decline must not be retried, the customer needs to add a new card.' );
+	}
+
+	/**
+	 * @covers \Paytrail\WooCommercePaymentGateway\Controllers\SubscriptionRetries::maybe_skip_retry
+	 */
+	public function test_an_order_paid_with_another_gateway_keeps_its_retry(): void {
+		$renewal = $this->haveRenewalWithCard();
+		$rule    = new \stdClass();
+
+		$renewal->set_payment_method( 'other-gateway' );
+		$renewal->update_meta_data( '_paytrail_acquirer_response_code', '111' );
+		$renewal->save();
+
+		$this->assertSame( $rule, apply_filters( 'wcs_get_retry_rule', $rule, 0, $renewal->get_id() ) );
+	}
+
 	/** An answer with no transaction id is not something the order can be paid against. */
 	public function test_a_charge_without_a_transaction_id_does_not_pay_the_order(): void {
 		$renewal = $this->haveRenewalWithCard();
@@ -215,10 +270,11 @@ class SubscriptionsTest extends IntegrationTestCase {
 	}
 
 	/** A renewal order for a subscription, with a saved card attached to it. */
-	private function haveRenewalWithCard( string $token = 'card-token-1' ): \WC_Order {
+	private function haveRenewalWithCard( string $token = 'card-token-1', string $card_type = 'visa' ): \WC_Order {
 		$renewal = $this->haveRenewalOrder();
 
-		$renewal->add_payment_token( $this->haveCardToken( [ 'token' => $token ] ) );
+		$renewal->add_payment_token( $this->haveCardToken( [ 'token' => $token, 'card_type' => $card_type ] ) );
+		$renewal->set_payment_method( Plugin::GATEWAY_ID );
 		$renewal->save();
 
 		return $renewal;

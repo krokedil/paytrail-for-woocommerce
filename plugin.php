@@ -24,6 +24,7 @@
 namespace Paytrail\WooCommercePaymentGateway;
 
 use Paytrail\WooCommercePaymentGateway\Controllers\OrderManagement;
+use Paytrail\WooCommercePaymentGateway\Controllers\SubscriptionRetries;
 use Paytrail\WooCommercePaymentGateway\Providers\KlarnaExpress;
 
 // Ensure that the file is being run within the WordPress context.
@@ -173,6 +174,7 @@ final class Plugin {
 
 		add_action( 'init', array( $this, 'initialize_gateway' ) );
 		add_action( 'init', array( $this, 'initialize_order_management' ) );
+		add_action( 'init', array( $this, 'initialize_subscription_retries' ) );
 		add_filter( 'woocommerce_payment_gateways', array( $this, 'register_gateway' ) );
 		add_filter( 'kec_acquiring_partner_integrations', array( $this, 'register_klarna_express' ) );
 	}
@@ -189,6 +191,13 @@ final class Plugin {
 	 */
 	public function initialize_order_management() {
 		new OrderManagement();
+	}
+
+	/**
+	 * Initialize the handling of WooCommerce Subscriptions payment retries.
+	 */
+	public function initialize_subscription_retries() {
+		new SubscriptionRetries();
 	}
 
 	/**
