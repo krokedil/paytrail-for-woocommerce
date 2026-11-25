@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
+use Paytrail\WooCommercePaymentGateway\Plugin;
 use Tests\Support\IntegrationTestCase;
 
 /**
@@ -28,6 +29,21 @@ class SubscriptionsTest extends IntegrationTestCase {
 		$this->assertSame( 'paytrail-mit-1', $reloaded->get_transaction_id() );
 		$this->assertNotEmpty( $reloaded->get_date_paid() );
 		$this->assertOrderHasNote( $renewal, 'Transaction paytrail-mit-1 created by token payment using card.' );
+	}
+
+	/** A renewal is a card charge, so completing it never waits on an invoice, even with manual activation on. */
+	public function test_completing_a_renewal_does_not_look_for_an_invoice(): void {
+		$this->haveGatewaySettings( [ 'manual_invoice_activation' => 'yes' ] );
+		$renewal = $this->haveRenewalWithCard();
+		$renewal->set_payment_method( Plugin::GATEWAY_ID );
+		$renewal->save();
+
+		$this->willChargeStoredCard( 'paytrail-mit-1' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+		$this->reload( $renewal )->update_status( 'completed' );
+
+		$this->assertSame( 'completed', $this->statusOf( $renewal ) );
+		$this->assertApiRequestCount( 0, '/payments/paytrail-mit-1', 'A card renewal has no invoice to look up.' );
 	}
 
 	/** The card token and the renewal's own total are what Paytrail is asked to charge. */

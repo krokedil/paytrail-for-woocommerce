@@ -20,11 +20,6 @@ parameters:
       count: 3
       path: src/Controllers/Card.php
 
-    - message: '#^Ternary operator condition is always true\.$#'
-      identifier: ternary.alwaysTrue
-      count: 1
-      path: src/Controllers/OrderManagement.php
-
     - message: '#^Call to an undefined method WC_Order_Item\:\:get_taxes\(\)\.$#'
       identifier: method.notFound
       count: 1

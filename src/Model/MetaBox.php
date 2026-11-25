@@ -131,9 +131,11 @@ class MetaBox {
 	/**
 	 * Get the Payment status from Paytrail.
 	 *
+	 * @param bool $rethrow Whether to rethrow a failed request instead of returning null.
 	 * @return PaymentStatusResponse|null
+	 * @throws \Exception When the request fails and $rethrow is true.
 	 */
-	public function get_payment_status() {
+	public function get_payment_status( $rethrow = false ) {
 		$gateway = Plugin::instance()->gateway();
 
 		$request = new PaymentStatusRequest();
@@ -149,6 +151,9 @@ class MetaBox {
 			}
 		} catch ( \Exception $e ) {
 			Plugin::instance()->gateway()->log( 'Error retrieving ' . PaymentStatusRequest::class . ': ' . $e->getMessage(), 'error' );
+			if ( $rethrow ) {
+				throw $e;
+			}
 			return null;
 		}
 

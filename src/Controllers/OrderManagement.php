@@ -7,6 +7,7 @@
 
 namespace Paytrail\WooCommercePaymentGateway\Controllers;
 
+use Paytrail\SDK\Exception\ClientException;
 use Paytrail\SDK\Response\InvoiceActivationResponse;
 use Paytrail\SDK\Response\InvoiceCancellationResponse;
 use Paytrail\WooCommercePaymentGateway\Model;
@@ -73,18 +74,24 @@ class OrderManagement extends AbstractController {
 			return;
 		}
 
-		try {
-			$model            = new Model\MetaBox( $order );
-			$payment_status   = $model->get_payment_status();
-			$payment_provider = $payment_status ? strtolower( $payment_status->getProvider() ) : '';
+		if ( ! $this->may_hold_invoice( $order, array( 'walley', 'klarna' ) ) ) {
+			return;
+		}
 
-			if ( empty( $payment_status ) || 'pending' !== $payment_status->getStatus() || ( false === strpos( $payment_provider, 'walley' ) && false === strpos( $payment_provider, 'klarna' ) ) ) {
+		try {
+			$model = new Model\MetaBox( $order );
+			// A failed lookup must surface when an invoice may be waiting, or it is never activated.
+			$payment_status   = $model->get_payment_status( $this->expects_manual_invoice( $order ) );
+			$payment_provider = $payment_status ? (string) $payment_status->getProvider() : '';
+
+			if ( empty( $payment_status ) || 'pending' !== $payment_status->getStatus() || ! $this->is_invoice_provider( $payment_provider, array( 'walley', 'klarna' ) ) ) {
 				return;
 			}
 
 			$client = $gateway->get_client();
 
 			$response = $client->activateInvoice( $transaction_id );
+			$this->ensure_ok_status( $response->getStatus() );
 
 			$gateway->log(
 				InvoiceActivationResponse::class . " Successfully activated invoice for order $order_id with transaction id $transaction_id: " . wp_json_encode( $response )
@@ -98,9 +105,9 @@ class OrderManagement extends AbstractController {
 			$order->set_status(
 				'on-hold',
 				sprintf(
-					// Translators: %s is the error message.
-					__( 'Failed to activate manual invoice: %s', 'paytrail-for-woocommerce' ),
-					$sanitized_message
+					// Translators: %s is the reason Paytrail gave, e.g. "Signature mismatch (HTTP 401)".
+					__( 'Paytrail could not activate the invoice for this order, so the customer has not been invoiced. Reason: %s. Set the order to Completed again to retry, or activate the invoice in the Paytrail merchant panel.', 'paytrail-for-woocommerce' ),
+					$this->describe_error( $e )
 				)
 			);
 			$order->save();
@@ -151,23 +158,26 @@ class OrderManagement extends AbstractController {
 			return;
 		}
 
+		if ( ! $this->may_hold_invoice( $order, array( 'klarna' ) ) ) {
+			return;
+		}
+
 		try {
-
 			$model = new Model\MetaBox( $order );
-
-			$payment_status = $model->get_payment_status();
+			// A failed lookup must surface when an invoice may be waiting, or it is never cancelled.
+			$payment_status = $model->get_payment_status( $this->expects_manual_invoice( $order ) );
 			if ( empty( $payment_status ) || 'pending' !== $payment_status->getStatus() ) {
 				return;
 			}
 
-			$payment_provider = $payment_status ? strtolower( $payment_status->getProvider() ) : '';
-			if ( false === strpos( $payment_provider, 'klarna' ) ) {
+			if ( ! $this->is_invoice_provider( (string) $payment_status->getProvider(), array( 'klarna' ) ) ) {
 				return;
 			}
 
 			$client = $gateway->get_client();
 
 			$response = $client->cancelInvoice( $transaction_id );
+			$this->ensure_ok_status( $response->getStatus(), $response->getMessage() );
 
 			$gateway->log(
 				InvoiceCancellationResponse::class . " Successfully cancelled invoice for order $order_id with transaction id $transaction_id: " . wp_json_encode( $response )
@@ -181,11 +191,105 @@ class OrderManagement extends AbstractController {
 			);
 			$order->add_order_note(
 				sprintf(
-					// Translators: %s is the error message.
-					__( 'Failed to cancel Klarna invoice: %s', 'paytrail-for-woocommerce' ),
-					$sanitized_message
+					// Translators: %s is the reason Paytrail gave, e.g. "Signature mismatch (HTTP 401)".
+					__( 'Paytrail could not cancel the Klarna invoice for this order, so the customer may still be invoiced. Reason: %s. Cancel the invoice in the Paytrail merchant panel.', 'paytrail-for-woocommerce' ),
+					$this->describe_error( $e )
 				)
 			);
 		}
+	}
+
+	/**
+	 * A short reason for an order note: Paytrail's own message and HTTP code where the API
+	 * answered, otherwise the exception's message. The full error is in the debug log.
+	 *
+	 * @param \Exception $exception The exception to describe.
+	 * @return string
+	 */
+	private function describe_error( $exception ) {
+		$reason = $exception->getMessage();
+
+		if ( $exception instanceof ClientException ) {
+			// The cURL client puts the response body in the message instead of the body.
+			$body    = $exception->getResponseBody() ? $exception->getResponseBody() : $exception->getMessage();
+			$decoded = json_decode( (string) $body, true );
+			$code    = $exception->getResponseCode() ? $exception->getResponseCode() : $exception->getCode();
+
+			if ( is_array( $decoded ) && ! empty( $decoded['message'] ) && is_string( $decoded['message'] ) ) {
+				$reason = $code ? sprintf( '%s (HTTP %d)', $decoded['message'], $code ) : $decoded['message'];
+			}
+		}
+
+		return rtrim( sanitize_text_field( $reason ), '.' );
+	}
+
+	/**
+	 * Paytrail can refuse an invoice action in the body of a successful response, which must be handled like a failed request.
+	 *
+	 * @param string|null $status  The status Paytrail answered with.
+	 * @param string|null $message The message Paytrail answered with, if any.
+	 * @return void
+	 * @throws \Exception When the status is not "ok".
+	 */
+	private function ensure_ok_status( $status, $message = null ) {
+		if ( 'ok' === $status ) {
+			return;
+		}
+
+		$reason = empty( $message ) ? 'Paytrail answered with status ' . $status : $message;
+		throw new \Exception( esc_html( $reason ) );
+	}
+
+	/**
+	 * Whether Paytrail may be holding an invoice for the order, judged from what was stored when the payment was made.
+	 *
+	 * @param \WC_Order $order     The WC order.
+	 * @param string[]  $providers The providers that hold invoices for this action.
+	 * @return bool
+	 */
+	private function may_hold_invoice( $order, $providers ) {
+		if ( 'no' === $order->get_meta( '_paytrail_manual_invoice_activation' ) ) {
+			return false;
+		}
+
+		$stored_provider = (string) $order->get_meta( '_checkout_payment_provider' );
+		if ( '' === $stored_provider || Plugin::GATEWAY_ID === $stored_provider ) {
+			return true;
+		}
+
+		return $this->is_invoice_provider( $stored_provider, $providers );
+	}
+
+	/**
+	 * Whether manual invoice activation was requested for the order's payment.
+	 *
+	 * @param \WC_Order $order The WC order.
+	 * @return bool
+	 */
+	private function expects_manual_invoice( $order ) {
+		$requested = $order->get_meta( '_paytrail_manual_invoice_activation' );
+		if ( '' === $requested ) {
+			$requested = Plugin::instance()->gateway()->get_option( 'manual_invoice_activation', 'no' );
+		}
+
+		return wc_string_to_bool( $requested );
+	}
+
+	/**
+	 * Whether a Paytrail provider id is one of the given invoice providers.
+	 *
+	 * @param string   $provider  The Paytrail provider id.
+	 * @param string[] $providers The invoice providers to match.
+	 * @return bool
+	 */
+	private function is_invoice_provider( $provider, $providers ) {
+		$provider = strtolower( $provider );
+		foreach ( $providers as $invoice_provider ) {
+			if ( false !== strpos( $provider, $invoice_provider ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
