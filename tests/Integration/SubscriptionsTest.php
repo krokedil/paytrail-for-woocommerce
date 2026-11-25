@@ -79,6 +79,72 @@ class SubscriptionsTest extends IntegrationTestCase {
 		$this->assertOrderHasNote( $renewal, 'Failed to create token payment using card.' );
 	}
 
+	/** The acquirer's reason is kept on the order, since some declines must never be retried. */
+	public function test_a_declined_renewal_records_why_the_card_was_declined(): void {
+		$renewal = $this->haveRenewalWithCard();
+
+		$this->willDeclineStoredCard( '116', 'Insufficient funds' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+
+		$reloaded = $this->reload( $renewal );
+
+		$this->assertSame( '116', $reloaded->get_meta( '_paytrail_acquirer_response_code' ) );
+		$this->assertSame( 'Insufficient funds', $reloaded->get_meta( '_paytrail_acquirer_response_code_description' ) );
+		$this->assertOrderHasNote( $renewal, 'Failed to create token payment using card. Acquirer response code: 116 (Insufficient funds).' );
+	}
+
+	/** Integrations get the decline code so they can decide whether a retry is allowed. */
+	public function test_a_declined_renewal_tells_integrations_the_decline_code(): void {
+		$renewal  = $this->haveRenewalWithCard();
+		$received = [];
+
+		add_action(
+			'paytrail_mit_payment_failed',
+			static function ( $order, $code, $description ) use ( &$received ) {
+				$received[] = [ $order->get_id(), $code, $description ];
+			},
+			10,
+			3
+		);
+
+		$this->willDeclineStoredCard( '116', 'Insufficient funds' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+
+		$this->assertSame( [ [ $renewal->get_id(), '116', 'Insufficient funds' ] ], $received );
+	}
+
+	/** A retry that fails for another reason must not keep showing the earlier decline code. */
+	public function test_a_failure_without_a_decline_code_forgets_the_previous_one(): void {
+		$renewal = $this->haveRenewalWithCard();
+
+		$this->willDeclineStoredCard( '116', 'Insufficient funds' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+
+		$this->willFailToConnect( '/payments/token/mit/charge' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $this->reload( $renewal ) );
+
+		$reloaded = $this->reload( $renewal );
+
+		$this->assertSame( '', $reloaded->get_meta( '_paytrail_acquirer_response_code' ) );
+		$this->assertSame( '', $reloaded->get_meta( '_paytrail_acquirer_response_code_description' ) );
+	}
+
+	/** A paid renewal has no decline to act on, so an earlier one is not left on the order. */
+	public function test_a_retry_that_succeeds_forgets_the_earlier_decline_code(): void {
+		$renewal = $this->haveRenewalWithCard();
+
+		$this->willDeclineStoredCard( '116', 'Insufficient funds' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+
+		$this->willChargeStoredCard( 'paytrail-mit-1' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $this->reload( $renewal ) );
+
+		$reloaded = $this->reload( $renewal );
+
+		$this->assertNotEmpty( $reloaded->get_date_paid() );
+		$this->assertSame( '', $reloaded->get_meta( '_paytrail_acquirer_response_code' ) );
+	}
+
 	/** An answer with no transaction id is not something the order can be paid against. */
 	public function test_a_charge_without_a_transaction_id_does_not_pay_the_order(): void {
 		$renewal = $this->haveRenewalWithCard();

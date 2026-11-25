@@ -2275,7 +2275,33 @@ final class Gateway extends \WC_Payment_Gateway {
 			$this->log( $exception->getMessage() . $exception->getTraceAsString(), 'error' );
 			new \WP_Error( $exception->getCode(), $exception->getMessage() );
 
+			$decline     = $this->get_acquirer_response( $exception );
+			$code        = $decline['code'];
+			$description = $decline['description'];
+
+			if ( '' !== $code ) {
+				$fail_message .= ' ' . sprintf(
+					// translators: %s is the acquirer response code, followed by its description in parentheses when there is one.
+					__( 'Acquirer response code: %s.', 'paytrail-for-woocommerce' ),
+					'' !== $description ? $code . ' (' . $description . ')' : $code
+				);
+			}
+
+			// Stored so retry rules can read it, and cleared when this failure has no code.
+			$this->set_acquirer_response_meta( $order, $code, $description );
+			$order->save();
 			$order->add_order_note( $fail_message );
+
+			/**
+			 * Fires when a merchant initiated (MIT) token payment, such as a subscription renewal, fails.
+			 *
+			 * @since 2.11.0
+			 *
+			 * @param WC_Order $order       The order that could not be charged.
+			 * @param string   $code        The acquirer response code, or an empty string if Paytrail did not return one.
+			 * @param string   $description The acquirer response code description, or an empty string.
+			 */
+			do_action( 'paytrail_mit_payment_failed', $order, $code, $description );
 
 			return false;
 		}
@@ -2284,6 +2310,8 @@ final class Gateway extends \WC_Payment_Gateway {
 			$message = __( 'Transaction Id not found', 'paytrail-for-woocommerce' );
 			throw new \Exception( esc_html( $message ) );
 		}
+
+		$this->set_acquirer_response_meta( $order, '', '' );
 
 		$message = sprintf(
 			// translators: First parameter is transaction ID.
@@ -2299,6 +2327,44 @@ final class Gateway extends \WC_Payment_Gateway {
 		$order->payment_complete( $response->getTransactionId() );
 
 		return true;
+	}
+
+	/**
+	 * Read the acquirer response code and description from a failed charge.
+	 *
+	 * @param \Exception $exception The exception thrown by the SDK.
+	 * @return array{code: string, description: string} Empty strings when Paytrail returned none.
+	 */
+	private function get_acquirer_response( $exception ) {
+		$body = $exception instanceof ClientException ? json_decode( (string) $exception->getResponseBody(), true ) : null;
+		$body = is_array( $body ) ? $body : array();
+
+		$code        = $body['acquirerResponseCode'] ?? '';
+		$description = $body['acquirerResponseCodeDescription'] ?? '';
+
+		return array(
+			'code'        => is_scalar( $code ) ? sanitize_text_field( (string) $code ) : '',
+			'description' => is_scalar( $description ) ? sanitize_text_field( (string) $description ) : '',
+		);
+	}
+
+	/**
+	 * Set the acquirer response meta on an order, or remove it when there is no code. Does not save the order.
+	 *
+	 * @param WC_Order $order       The order that was charged.
+	 * @param string   $code        The acquirer response code.
+	 * @param string   $description The acquirer response code description.
+	 * @return void
+	 */
+	private function set_acquirer_response_meta( $order, $code, $description ) {
+		if ( '' === $code ) {
+			$order->delete_meta_data( '_paytrail_acquirer_response_code' );
+			$order->delete_meta_data( '_paytrail_acquirer_response_code_description' );
+			return;
+		}
+
+		$order->update_meta_data( '_paytrail_acquirer_response_code', $code );
+		$order->update_meta_data( '_paytrail_acquirer_response_code_description', $description );
 	}
 
 	/**
