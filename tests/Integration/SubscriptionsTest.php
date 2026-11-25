@@ -146,6 +146,7 @@ class SubscriptionsTest extends IntegrationTestCase {
 
 		$this->assertNotEmpty( $reloaded->get_date_paid() );
 		$this->assertSame( '', $reloaded->get_meta( '_paytrail_acquirer_response_code' ) );
+		$this->assertSame( '', $reloaded->get_meta( '_paytrail_acquirer_response_code_description' ) );
 	}
 
 	/**
