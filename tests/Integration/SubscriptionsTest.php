@@ -57,25 +57,27 @@ class SubscriptionsTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * Without a card there is nothing to charge, so the renewal is left for
-	 * WooCommerce Subscriptions to retry rather than sent to Paytrail.
+	 * Without a card there is nothing to charge, so the renewal is failed for
+	 * WooCommerce Subscriptions to act on rather than sent to Paytrail.
 	 */
 	public function test_a_renewal_without_a_card_is_not_charged(): void {
 		$renewal = $this->haveRenewalOrder();
 
 		$this->assertFalse( $this->gateway()->scheduled_subscription_payment( 100.00, $renewal ) );
 		$this->assertNoApiRequests();
+		$this->assertSame( 'failed', $this->reload( $renewal )->get_status() );
 		$this->assertOrderHasNote( $renewal, 'Cannot schedule subscription payment. No valid tokens found for order.' );
 	}
 
-	/** A declined renewal leaves the order unpaid, with a note a merchant can act on. */
-	public function test_a_declined_renewal_leaves_the_order_unpaid(): void {
+	/** WooCommerce Subscriptions only retries or notifies when the renewal order is failed, not pending. */
+	public function test_a_declined_renewal_fails_the_order(): void {
 		$renewal = $this->haveRenewalWithCard();
 
 		$this->willRejectWith( '/payments/token/mit/charge', 'card declined', 403 );
 		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
 
 		$this->assertEmpty( $this->reload( $renewal )->get_date_paid() );
+		$this->assertSame( 'failed', $this->reload( $renewal )->get_status() );
 		$this->assertOrderHasNote( $renewal, 'Failed to create token payment using card.' );
 	}
 
@@ -153,6 +155,25 @@ class SubscriptionsTest extends IntegrationTestCase {
 		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
 
 		$this->assertEmpty( $this->reload( $renewal )->get_date_paid() );
+		$this->assertSame( 'failed', $this->reload( $renewal )->get_status() );
+	}
+
+	/** Retry rules run when the order fails, so the decline code has to be stored by then. */
+	public function test_the_decline_code_is_stored_before_the_order_fails(): void {
+		$renewal = $this->haveRenewalWithCard();
+		$seen    = null;
+
+		add_action(
+			'woocommerce_order_status_failed',
+			static function ( $order_id ) use ( &$seen ) {
+				$seen = wc_get_order( $order_id )->get_meta( '_paytrail_acquirer_response_code' );
+			}
+		);
+
+		$this->willDeclineStoredCard( '116', 'Insufficient funds' );
+		$this->gateway()->scheduled_subscription_payment( 100.00, $renewal );
+
+		$this->assertSame( '116', $seen );
 	}
 
 	/**

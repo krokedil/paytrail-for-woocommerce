@@ -2587,6 +2587,7 @@ final class Gateway extends \WC_Payment_Gateway {
 			// Log the error message if debug log is enabled.
 			$this->log( $fail_message, 'error' );
 			$order->add_order_note( $fail_message );
+			$this->fail_renewal_order( $order );
 			return false;
 		}
 		try {
@@ -2603,13 +2604,33 @@ final class Gateway extends \WC_Payment_Gateway {
 			// Save it also as a key for fast indexed searches.
 			$order->update_meta_data( '_checkout_reference_' . $payment->getReference(), true );
 			$order->save();
-			$this->create_mit_payment( $payment, $order );
+
+			if ( ! $this->create_mit_payment( $payment, $order ) ) {
+				$this->fail_renewal_order( $order );
+				return false;
+			}
 		} catch ( \Exception $exception ) {
 			// Log the error message if debug log is enabled.
 			$this->log( $exception->getMessage() . $exception->getTraceAsString(), 'error' );
+			$this->fail_renewal_order( $order );
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * Mark a renewal order as failed, which is how WooCommerce Subscriptions learns the payment failed.
+	 *
+	 * @param WC_Order $order The renewal order that could not be charged.
+	 * @return void
+	 */
+	private function fail_renewal_order( $order ) {
+		// A paid order is never failed, even if something threw after the charge went through.
+		if ( $order->is_paid() || $order->has_status( 'failed' ) ) {
+			return;
+		}
+
+		$order->update_status( 'failed' );
 	}
 
 	/**
